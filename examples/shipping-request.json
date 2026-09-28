@@ -1,0 +1,12 @@
+{
+  "currency": "USD",
+  "destination": {"country": "US"},
+  "items": [
+    {"item_id":"cable","quantity":1,"offers":[{"offer_id":"a-cable","group_id":"a-warehouse","unit_price_minor":1800},{"offer_id":"b-cable","group_id":"b-warehouse","unit_price_minor":1200}]},
+    {"item_id":"charger","quantity":1,"offers":[{"offer_id":"a-charger","group_id":"a-warehouse","unit_price_minor":2200},{"offer_id":"b-charger","group_id":"b-warehouse","unit_price_minor":3000}]}
+  ],
+  "fulfillment_groups": [
+    {"group_id":"a-warehouse","merchant_id":"demo-merchant-a","rule_source":"Synthetic example; not a real merchant quote","ship_to_countries":["US"],"methods":[{"method_id":"standard","base_minor":700,"per_unit_minor":0,"free_over_subtotal_minor":4000,"delivery_days_max":5},{"method_id":"express","base_minor":1500,"per_unit_minor":0,"delivery_days_max":1}]},
+    {"group_id":"b-warehouse","merchant_id":"demo-merchant-b","rule_source":"Synthetic example; not a real merchant quote","ship_to_countries":["US"],"methods":[{"method_id":"standard","base_minor":500,"per_unit_minor":0,"delivery_days_max":3}]}
+  ]
+}
