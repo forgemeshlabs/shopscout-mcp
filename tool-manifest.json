@@ -1,6 +1,160 @@
 {
   "tools": [
     {
+      "name": "search_products",
+      "description": "Search Shopify catalog products by query, destination and currency. Requires an enabled catalog connector.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "pattern": "\\S"
+          },
+          "country": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$"
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20,
+            "default": 10
+          },
+          "cursor": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "min_price_minor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "max_price_minor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000000
+          }
+        },
+        "required": [
+          "query",
+          "country",
+          "currency"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "get_product",
+      "description": "Retrieve current catalog details and variant options by Shopify identifier. Does not verify checkout or delivery.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^gid://shopify/(p|ProductVariant)/[a-zA-Z0-9_-]+$",
+            "maxLength": 200
+          },
+          "country": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$"
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "selected": {
+            "type": "array",
+            "maxItems": 10,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                },
+                "label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                }
+              },
+              "required": [
+                "name",
+                "label"
+              ]
+            }
+          }
+        },
+        "required": [
+          "id",
+          "country",
+          "currency"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "compare_offers",
+      "description": "Refresh specified variant offers and rank available offers by item price in one currency. Equivalence and landed totals are not verified.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "variant_ids": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 10,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^gid://shopify/ProductVariant/[0-9]+$",
+              "maxLength": 200
+            }
+          },
+          "country": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$"
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          }
+        },
+        "required": [
+          "variant_ids",
+          "country",
+          "currency"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
       "name": "get_capabilities",
       "description": "Inspect ShoppingScout capability availability, stable IDs, and planned price/stock/shipping watches. This does not create a watch or store client preferences.",
       "inputSchema": {

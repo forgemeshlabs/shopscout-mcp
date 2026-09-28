@@ -25,7 +25,8 @@ export function createApiClient({ baseUrl = parseBaseUrl(process.env.SHOPPINGSCO
       const raw = Buffer.concat(chunks).toString();
       try { data = JSON.parse(raw); } catch { throw new ApiError('invalid_upstream_response', 'Backend did not return valid JSON', response.status); }
       if (!data || typeof data !== 'object' || Array.isArray(data)) throw new ApiError('invalid_upstream_response', 'Backend response must be a JSON object', response.status);
-      if (!response.ok) throw new ApiError(response.status === 501 ? 'capability_planned' : 'upstream_error', typeof data.error?.message === 'string' ? data.error.message : 'Backend rejected the request', response.status);
+      const catalogCodes = new Set(['catalog_not_configured','catalog_rate_limited','catalog_unavailable','catalog_timeout','catalog_payment_required','catalog_tool_error','invalid_catalog_response','catalog_response_too_large','invalid_input']);
+      if (!response.ok) throw new ApiError(response.status === 501 ? 'capability_planned' : catalogCodes.has(data.error?.code) ? data.error.code : 'upstream_error', typeof data.error?.message === 'string' ? data.error.message : 'Backend rejected the request', response.status);
       return data;
     } catch (error) {
       if (error instanceof ApiError) throw error;

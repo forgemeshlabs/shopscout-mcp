@@ -1,12 +1,29 @@
 {
   "name": "@forgemeshlabs/shoppingscout-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "ShoppingScout MCP: inspect available shopping capabilities and compare shipping plans.",
-  "bin": { "shoppingscout-mcp": "src/index.js" },
-  "files": ["src", "contracts", "tool-manifest.json", "examples", "README.md"],
-  "engines": { "node": ">=20" },
-  "scripts": { "start": "node src/index.js", "build": "node scripts/build.js", "test": "node --test" },
-  "dependencies": { "@modelcontextprotocol/sdk": "1.30.0", "ajv": "8.17.1" }
+  "description": "ShoppingScout: product search, variant offers and shipping-plan comparison for agents",
+  "bin": {
+    "shoppingscout-mcp": "src/index.js"
+  },
+  "files": [
+    "src",
+    "contracts",
+    "tool-manifest.json",
+    "examples",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "build": "node scripts/build.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.30.0",
+    "ajv": "8.17.1"
+  }
 }
