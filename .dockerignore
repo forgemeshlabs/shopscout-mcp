@@ -1,0 +1,14 @@
+**
+!package.json
+!package-lock.json
+!src/
+!src/**
+!contracts/
+!contracts/**
+!scripts/
+!scripts/build.js
+!README.md
+!LICENSE
+!glama.json
+!server.json
+!GLAMA.md

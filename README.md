@@ -16,7 +16,7 @@ npm run build
 Start the separate ShoppingScout backend first (in its own terminal):
 
 ```bash
-cd /home/ubuntu/repos/x402-shoppingscout-server
+cd /absolute/path/to/x402-shoppingscout-server
 npm run start:preview
 ```
 
@@ -27,14 +27,14 @@ Then configure your MCP client:
   "mcpServers": {
     "shoppingscout": {
       "command": "node",
-      "args": ["/home/ubuntu/dev/shoppingscout-mcp/src/index.js"],
+      "args": ["/absolute/path/to/shoppingscout-mcp/src/index.js"],
       "env": { "SHOPPINGSCOUT_BASE_URL": "http://127.0.0.1:3478" }
     }
   }
 }
 ```
 
-These absolute paths describe the operator's local installation; substitute your own paths when copying the project. The wrapper does not start the backend itself, read backend source at runtime, load `.env` automatically, or require a wallet. Set `PORT` for the backend and update `SHOPPINGSCOUT_BASE_URL` together when using another port.
+Substitute your own installation paths. The wrapper does not start the backend itself, read backend source at runtime, load `.env` automatically, or require a wallet. Set `PORT` for the backend and update `SHOPPINGSCOUT_BASE_URL` together when using another port.
 
 ## Tools
 
@@ -64,7 +64,7 @@ The operator configures one API origin; tool inputs cannot select a URL. HTTPS i
 
 ```bash
 npm run build
-SHOPPINGSCOUT_SERVER_PATH=/home/ubuntu/repos/x402-shoppingscout-server npm test
+SHOPPINGSCOUT_SERVER_PATH=/absolute/path/to/x402-shoppingscout-server npm test
 ```
 
 The integration test starts an ephemeral backend, connects through a real MCP SDK stdio client, lists all five tools and exercises search, detail lookup, offer comparison and shipping with synthetic catalog data. No production API, merchant catalog or payment is called. Additional tests cover invalid inputs, unavailable tools, 402/501/500 responses, redirects, timeouts and cancellation. Tests require permission to bind localhost.
@@ -72,9 +72,16 @@ The integration test starts an ephemeral backend, connects through a real MCP SD
 `contracts/openapi.json` is a pinned backend contract, not a second implementation. To update after a backend contract change:
 
 ```bash
-node /home/ubuntu/repos/x402-shoppingscout-server/scripts/export-contracts.js
-cp /home/ubuntu/repos/x402-shoppingscout-server/openapi.json contracts/openapi.json
+node /absolute/path/to/x402-shoppingscout-server/scripts/export-contracts.js
+cp /absolute/path/to/x402-shoppingscout-server/openapi.json contracts/openapi.json
 npm run build
 ```
 
 Review new operations deliberately; do not automatically expose planned endpoints. `npm run build` compiles JSON schemas and generates `tool-manifest.json`; source JavaScript runs directly.
+
+
+## Release and container status
+
+Glama and official MCP Registry metadata are prepared in `glama.json`, `server.json` and `GLAMA.md`. The repository/package remain unpublished and private; no official badge is claimed. See `GLAMA.md` for exact build-step arrays, command argv and environment schema. `Dockerfile` runs the stdio wrapper as a non-root user; a Docker build has not been verified because the preparation host lacks a container runtime. Package smoke tests are separate from container tests.
+
+Only a configured API origin is required. This wrapper does not support private-key environment variables or automatic x402 settlement. Hosted payment and receipt features belong to the backend. License: MIT.

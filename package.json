@@ -11,8 +11,13 @@
     "src",
     "contracts",
     "tool-manifest.json",
-    "examples",
-    "README.md"
+    "server.json",
+    "glama.json",
+    "GLAMA.md",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "SECURITY.md"
   ],
   "engines": {
     "node": ">=20"
@@ -25,5 +30,20 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.30.0",
     "ajv": "8.17.1"
-  }
+  },
+  "license": "MIT",
+  "author": "ForgeMesh Labs",
+  "main": "src/index.js",
+  "mcpName": "io.github.forgemeshlabs/shoppingscout-mcp",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/forgemeshlabs/shoppingscout-mcp.git"
+  },
+  "keywords": [
+    "mcp",
+    "shopping",
+    "product-search",
+    "shipping",
+    "x402"
+  ]
 }
