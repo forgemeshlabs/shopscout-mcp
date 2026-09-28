@@ -643,6 +643,46 @@
         }
       }
     },
+    "/v1/research/quantum/basket-optimization": {
+      "post": {
+        "operationId": "optimize_basket_quantum",
+        "summary": "Research placeholder for quantum-assisted basket optimization. No quantum solver, hardware access or proven advantage.",
+        "x-status": "planned",
+        "description": "Reserved operation. Always returns 501. Request contract is not finalized. Do not call this to subscribe; no state is stored.",
+        "responses": {
+          "501": {
+            "description": "Not implemented; created=false, charged=false",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/research/quantum/benchmarks": {
+      "post": {
+        "operationId": "benchmark_quantum_optimizer",
+        "summary": "Research placeholder to compare quantum and classical solvers on identical constraints, result quality, end-to-end latency and cost. No benchmark is executed.",
+        "x-status": "planned",
+        "description": "Reserved operation. Always returns 501. Request contract is not finalized. Do not call this to subscribe; no state is stored.",
+        "responses": {
+          "501": {
+            "description": "Not implemented; created=false, charged=false",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/price-watches": {
       "post": {
         "operationId": "create_price_watch",

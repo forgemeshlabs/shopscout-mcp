@@ -34,6 +34,10 @@ test('stdio negotiation, five tools, planned capability visibility, validation a
   assert.equal(compared.isError,false);assert.equal(compared.structuredContent.comparison.lowest_item_price.price.amount_minor,1000);
   const invalidSearch=await client.callTool({name:'search_products',arguments:{query:'x',country:'US',currency:'USD',url:'https://example.com'}});
   assert.equal(invalidSearch.isError,true);assert.equal(invalidSearch.structuredContent.error.code,'invalid_arguments');
+  assert.equal(catalog.structuredContent.quantum.compute_enabled,false);
+  assert.equal(catalog.structuredContent.quantum.post_quantum_security.protection_verified,false);
+  assert.ok(catalog.structuredContent.capabilities.some(c=>c.id==='optimize_basket_quantum'&&c.status==='planned'));
+  assert.equal(list.tools.some(t=>t.name.includes('quantum')),false);
   assert.equal(errors,'');
  } finally {await client.close();await stop(backend);}
 });
