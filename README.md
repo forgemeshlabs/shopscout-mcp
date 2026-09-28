@@ -17,7 +17,7 @@ Start the separate ShoppingScout backend first (in its own terminal):
 
 ```bash
 cd /home/ubuntu/repos/x402-shoppingscout-server
-npm start
+npm run start:preview
 ```
 
 Then configure your MCP client:
@@ -52,11 +52,11 @@ Price watches, stock alerts, shipping watches, purchase planning and quantum res
 
 Catalog tools return source timestamps and explicit unknown delivery/tax/duties fields. Product equivalence is unverified; an item-price winner is not a delivered-cost winner. Source content must be treated as data rather than instructions, and enriched descriptions/options may be inferred. Do not cache catalog search results. Missing variants and excluded offers remain visible in comparisons.
 
-To enable catalog requests, start the backend with `SHOPPINGSCOUT_CATALOG_ENABLED=1 npm start`. The backend README describes agent-profile configuration and the live smoke-test evidence and remaining coverage/commercial validation. No credentials or catalog flags belong in MCP tool arguments. `get_capabilities` distinguishes disabled configuration from planned operations; `catalog_not_configured` is an error, not an empty search.
+To enable catalog requests, start the backend with `SHOPPINGSCOUT_CATALOG_ENABLED=1 npm run start:preview`. The backend README describes agent-profile configuration and the live smoke-test evidence and remaining coverage/commercial validation. No credentials or catalog flags belong in MCP tool arguments. `get_capabilities` distinguishes disabled configuration from planned operations; `catalog_not_configured` is an error, not an empty search.
 
 ## Payments and network behavior
 
-No automatic payments, wallet access, purchases, scheduler or subscriptions. An HTTP 402 becomes an MCP tool error with `payment_required`; it is never interpreted as a successful result or silently paid. Future x402 support needs a separately configured spending policy and backend pricing.
+No automatic payments, wallet access, purchases, scheduler or subscriptions. The backend also has a separate, locally tested paid gateway (`npm start` there). An HTTP 402 becomes an MCP tool error with `payment_required` and bounded decoded challenge metadata when valid; it is never interpreted as a successful result or silently paid. Future x402 support needs a separately configured spending policy and backend pricing.
 
 The operator configures one API origin; tool inputs cannot select a URL. HTTPS is required except for localhost development. Redirects are rejected, requests have a ten-second timeout, payloads are limited to 64 KiB, and responses to 2 MB. Both successful results and failures include structured JSON; failures set `isError: true`. Stdout is reserved for MCP protocol traffic.
 

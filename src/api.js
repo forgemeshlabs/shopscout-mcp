@@ -19,7 +19,18 @@ export function createApiClient({ baseUrl = parseBaseUrl(process.env.SHOPPINGSCO
         signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]) : AbortSignal.timeout(timeoutMs)
       });
       // Do not consume/forward a payment challenge as success; no automatic wallet access.
-      if (response.status === 402) { await response.body?.cancel(); throw new ApiError('payment_required', 'Backend requires payment. This wrapper does not sign or submit payments.', 402); }
+      if (response.status === 402) {
+        await response.body?.cancel();
+        const error = new ApiError('payment_required', 'Use an x402 HTTP client to pay and call this route. This MCP wrapper does not sign, submit or retry payments.', 402);
+        const header = response.headers.get('payment-required');
+        if (header && header.length <= 16384) {
+          try {
+            const challenge = JSON.parse(Buffer.from(header, 'base64').toString());
+            if (challenge.x402Version === 2 && Array.isArray(challenge.accepts) && challenge.accepts.length <= 10) error.paymentRequired = challenge;
+          } catch { /* The error remains payment_required even when metadata is malformed. */ }
+        }
+        throw error;
+      }
       const reader = response.body?.getReader(); const chunks = []; let size = 0;
       if (reader) for (;;) { const { done, value } = await reader.read(); if (done) break; size += value.length; if (size > 2_000_000) { await reader.cancel(); throw new ApiError('response_too_large', 'Backend response exceeds 2 MB'); } chunks.push(value); }
       const raw = Buffer.concat(chunks).toString();

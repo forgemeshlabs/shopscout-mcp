@@ -71,3 +71,11 @@ test('bounded requests, cancellation and deadlines',async()=>{
   await assert.rejects(createApiClient({baseUrl:url})({method:'POST',path:'/v1/shipping/compare'},{data:'x'.repeat(70000)}),e=>e.code==='payload_too_large');
  }finally{await stop(server);}
 });
+
+
+test('402 challenge is inspectable without wallet access or automatic retry',async()=>{
+ const challenge={x402Version:2,resource:{url:'https://example.com/v1/search'},accepts:[{scheme:'exact',network:'eip155:8453',amount:'10000'}]};
+ let calls=0;
+ const {server,url}=await serve((req,res)=>{calls++;res.writeHead(402,{'payment-required':Buffer.from(JSON.stringify(challenge)).toString('base64')});res.end('{}');});
+ try{await assert.rejects(createApiClient({baseUrl:url})({method:'POST',path:'/v1/search'},{}),e=>e.code==='payment_required'&&JSON.stringify(e.paymentRequired)===JSON.stringify(challenge));assert.equal(calls,1);}finally{await stop(server);}
+});

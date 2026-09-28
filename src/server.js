@@ -16,7 +16,7 @@ export function createMcpServer(options = {}) {
     const args = req.params.arguments ?? {};
     if (!validate(args)) return result({ error: { code: 'invalid_arguments', message: 'Arguments do not match the input schema', details: validate.errors.map(e => ({ path: e.instancePath, keyword: e.keyword, message: e.message })) } }, true);
     try { return result(await request(route, args, extra.signal)); }
-    catch (e) { return result({ error: { code: e.code || 'tool_error', message: e.code ? e.message : 'Tool failed', ...(e.status ? { http_status: e.status } : {}) } }, true); }
+    catch (e) { return result({ error: { code: e.code || 'tool_error', message: e.code ? e.message : 'Tool failed', ...(e.status ? { http_status: e.status } : {}), ...(e.paymentRequired ? { payment_required: e.paymentRequired } : {}) } }, true); }
   });
   return server;
 }
