@@ -1,7 +1,7 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "ForgeMesh ShoppingScout",
+    "title": "ForgeMesh ShopScout",
     "version": "0.2.0",
     "description": "Local catalog connector and shipping calculator. Catalog access requires configuration; monitoring remains planned. No payments or purchases."
   },

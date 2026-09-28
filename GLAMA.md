@@ -4,10 +4,10 @@ Status: repository preparation only. No npm publication, public repository, Glam
 
 ## Repository and Dockerfile
 
-Planned repository: https://github.com/forgemeshlabs/shoppingscout-mcp
+Planned repository: https://github.com/forgemeshlabs/shopscout-mcp
 
 After the repository is published, use this Dockerfile URL in Glama's Dockerfile/repository configuration field:
-https://github.com/forgemeshlabs/shoppingscout-mcp/blob/main/Dockerfile
+https://github.com/forgemeshlabs/shopscout-mcp/blob/main/Dockerfile
 
 This is not a claim that the URL currently exists. Local reference: `Dockerfile`.
 
@@ -31,12 +31,12 @@ Do not enter a shell string or nested arrays. Do not add `mcp-proxy` unless the 
 {
   "type": "object",
   "properties": {
-    "SHOPPINGSCOUT_BASE_URL": {
+    "SHOPSCOUT_BASE_URL": {
       "type": "string",
-      "description": "Trusted ShoppingScout HTTPS API origin; localhost HTTP is allowed only for development. No credentials, paths, queries or fragments."
+      "description": "Trusted ShopScout HTTPS API origin; localhost HTTP is allowed only for development. No credentials, paths, queries or fragments."
     }
   },
-  "required": ["SHOPPINGSCOUT_BASE_URL"],
+  "required": ["SHOPSCOUT_BASE_URL"],
   "additionalProperties": false
 }
 ```
@@ -46,9 +46,9 @@ No wallet/private-key variable is supported. For local tool-discovery inspection
 ## Container
 
 ```bash
-docker build -t shoppingscout-mcp:local .
+docker build -t shopscout-mcp:local .
 docker run --rm -i --network=host \
-  -e SHOPPINGSCOUT_BASE_URL=http://127.0.0.1:3478 shoppingscout-mcp:local
+  -e SHOPSCOUT_BASE_URL=http://127.0.0.1:3478 shopscout-mcp:local
 ```
 
 The host-network example is for Linux local development. For a deployed backend, omit host networking and supply its HTTPS origin. Stdio protocol output goes to stdout; diagnostics go to stderr. The image runs as the non-root `node` user and contains only the MCP wrapper, not the backend or its credentials.

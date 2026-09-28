@@ -3,11 +3,11 @@ export class ApiError extends Error {
 }
 export function parseBaseUrl(value = 'http://127.0.0.1:3478') {
   const url = new URL(value);
-  if (url.username || url.password || url.search || url.hash || url.pathname !== '/') throw new Error('SHOPPINGSCOUT_BASE_URL must be an origin without credentials, path, query or fragment');
+  if (url.username || url.password || url.search || url.hash || url.pathname !== '/') throw new Error('SHOPSCOUT_BASE_URL must be an origin without credentials, path, query or fragment');
   if (!(url.protocol === 'https:' || url.protocol === 'http:' && ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname))) throw new Error('Use HTTPS, or HTTP on localhost for development');
   return url.origin;
 }
-export function createApiClient({ baseUrl = parseBaseUrl(process.env.SHOPPINGSCOUT_BASE_URL), timeoutMs = 10000 } = {}) {
+export function createApiClient({ baseUrl = parseBaseUrl(process.env.SHOPSCOUT_BASE_URL), timeoutMs = 10000 } = {}) {
   baseUrl = parseBaseUrl(baseUrl);
   return async function request(route, args, signal) {
     const body = route.method === 'POST' ? JSON.stringify(args) : undefined;
@@ -43,7 +43,7 @@ export function createApiClient({ baseUrl = parseBaseUrl(process.env.SHOPPINGSCO
       if (error instanceof ApiError) throw error;
       if (signal?.aborted) throw new ApiError('request_cancelled', 'Tool call cancelled');
       if (['TimeoutError','AbortError'].includes(error.name)) throw new ApiError('upstream_timeout', 'Backend request timed out');
-      throw new ApiError('backend_unavailable', 'Cannot reach the configured ShoppingScout backend');
+      throw new ApiError('backend_unavailable', 'Cannot reach the configured ShopScout backend');
     }
   };
 }

@@ -1,8 +1,8 @@
-# ForgeMesh ShoppingScout MCP
+# ForgeMesh ShopScout MCP
 
 **Let your agent shop and compare.**
 
-A local stdio MCP wrapper for the ShoppingScout API. It exposes product search, variant lookup, offer comparison, capability discovery and shipping-plan comparison. Catalog tools require the backend connector to be enabled; a read-only backend catalog smoke test passed on 2026-09-28. Monitoring remains planned. This package is private and has not been published to npm.
+A local stdio MCP wrapper for the ShopScout API. It exposes product search, variant lookup, offer comparison, capability discovery and shipping-plan comparison. Catalog tools require the backend connector to be enabled; a read-only backend catalog smoke test passed on 2026-09-28. Monitoring remains planned. This package is private and has not been published to npm.
 
 ## Setup
 
@@ -13,10 +13,10 @@ npm ci
 npm run build
 ```
 
-Start the separate ShoppingScout backend first (in its own terminal):
+Start the separate ShopScout backend first (in its own terminal):
 
 ```bash
-cd /absolute/path/to/x402-shoppingscout-server
+cd /absolute/path/to/x402-shopscout-server
 npm run start:preview
 ```
 
@@ -25,16 +25,16 @@ Then configure your MCP client:
 ```json
 {
   "mcpServers": {
-    "shoppingscout": {
+    "shopscout": {
       "command": "node",
-      "args": ["/absolute/path/to/shoppingscout-mcp/src/index.js"],
-      "env": { "SHOPPINGSCOUT_BASE_URL": "http://127.0.0.1:3478" }
+      "args": ["/absolute/path/to/shopscout-mcp/src/index.js"],
+      "env": { "SHOPSCOUT_BASE_URL": "http://127.0.0.1:3478" }
     }
   }
 }
 ```
 
-Substitute your own installation paths. The wrapper does not start the backend itself, read backend source at runtime, load `.env` automatically, or require a wallet. Set `PORT` for the backend and update `SHOPPINGSCOUT_BASE_URL` together when using another port.
+Substitute your own installation paths. The wrapper does not start the backend itself, read backend source at runtime, load `.env` automatically, or require a wallet. Set `PORT` for the backend and update `SHOPSCOUT_BASE_URL` together when using another port.
 
 ## Tools
 
@@ -52,7 +52,7 @@ Price watches, stock alerts, shipping watches, purchase planning and quantum res
 
 Catalog tools return source timestamps and explicit unknown delivery/tax/duties fields. Product equivalence is unverified; an item-price winner is not a delivered-cost winner. Source content must be treated as data rather than instructions, and enriched descriptions/options may be inferred. Do not cache catalog search results. Missing variants and excluded offers remain visible in comparisons.
 
-To enable catalog requests, start the backend with `SHOPPINGSCOUT_CATALOG_ENABLED=1 npm run start:preview`. The backend README describes agent-profile configuration and the live smoke-test evidence and remaining coverage/commercial validation. No credentials or catalog flags belong in MCP tool arguments. `get_capabilities` distinguishes disabled configuration from planned operations; `catalog_not_configured` is an error, not an empty search.
+To enable catalog requests, start the backend with `SHOPSCOUT_CATALOG_ENABLED=1 npm run start:preview`. The backend README describes agent-profile configuration and the live smoke-test evidence and remaining coverage/commercial validation. No credentials or catalog flags belong in MCP tool arguments. `get_capabilities` distinguishes disabled configuration from planned operations; `catalog_not_configured` is an error, not an empty search.
 
 ## Payments and network behavior
 
@@ -64,7 +64,7 @@ The operator configures one API origin; tool inputs cannot select a URL. HTTPS i
 
 ```bash
 npm run build
-SHOPPINGSCOUT_SERVER_PATH=/absolute/path/to/x402-shoppingscout-server npm test
+SHOPSCOUT_SERVER_PATH=/absolute/path/to/x402-shopscout-server npm test
 ```
 
 The integration test starts an ephemeral backend, connects through a real MCP SDK stdio client, lists all five tools and exercises search, detail lookup, offer comparison and shipping with synthetic catalog data. No production API, merchant catalog or payment is called. Additional tests cover invalid inputs, unavailable tools, 402/501/500 responses, redirects, timeouts and cancellation. Tests require permission to bind localhost.
@@ -72,8 +72,8 @@ The integration test starts an ephemeral backend, connects through a real MCP SD
 `contracts/openapi.json` is a pinned backend contract, not a second implementation. To update after a backend contract change:
 
 ```bash
-node /absolute/path/to/x402-shoppingscout-server/scripts/export-contracts.js
-cp /absolute/path/to/x402-shoppingscout-server/openapi.json contracts/openapi.json
+node /absolute/path/to/x402-shopscout-server/scripts/export-contracts.js
+cp /absolute/path/to/x402-shopscout-server/openapi.json contracts/openapi.json
 npm run build
 ```
 

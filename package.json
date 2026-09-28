@@ -1,11 +1,11 @@
 {
-  "name": "@forgemeshlabs/shoppingscout-mcp",
+  "name": "@forgemeshlabs/shopscout-mcp",
   "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "ShoppingScout: product search, variant offers and shipping-plan comparison for agents",
+  "description": "ShopScout: product search, variant offers and shipping-plan comparison for agents",
   "bin": {
-    "shoppingscout-mcp": "src/index.js"
+    "shopscout-mcp": "src/index.js"
   },
   "files": [
     "src",
@@ -34,10 +34,10 @@
   "license": "MIT",
   "author": "ForgeMesh Labs",
   "main": "src/index.js",
-  "mcpName": "io.github.forgemeshlabs/shoppingscout-mcp",
+  "mcpName": "io.github.forgemeshlabs/shopscout-mcp",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/forgemeshlabs/shoppingscout-mcp.git"
+    "url": "git+https://github.com/forgemeshlabs/shopscout-mcp.git"
   },
   "keywords": [
     "mcp",

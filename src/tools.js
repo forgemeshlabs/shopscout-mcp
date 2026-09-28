@@ -10,7 +10,7 @@ export const tools = [
   ...catalogTools,
   {
     name: 'get_capabilities',
-    description: 'Inspect ShoppingScout capability availability, stable IDs, and planned price/stock/shipping watches. This does not create a watch or store client preferences.',
+    description: 'Inspect ShopScout capability availability, stable IDs, and planned price/stock/shipping watches. This does not create a watch or store client preferences.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true }
   },

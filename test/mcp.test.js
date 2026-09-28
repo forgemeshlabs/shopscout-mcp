@@ -12,12 +12,12 @@ async function stop(server) {server.closeAllConnections();await new Promise(r=>s
 const sample=JSON.parse(readFileSync(new URL('../examples/shipping-request.json',import.meta.url)));
 
 test('stdio negotiation, five tools, planned capability visibility, validation and calculation',async()=>{
- const path=process.env.SHOPPINGSCOUT_SERVER_PATH;
- assert.ok(path,'Set SHOPPINGSCOUT_SERVER_PATH to the backend repo for this integration test');
+ const path=process.env.SHOPSCOUT_SERVER_PATH;
+ assert.ok(path,'Set SHOPSCOUT_SERVER_PATH to the backend repo for this integration test');
  const {createServer}=await import(pathToFileURL(`${path}/src/server.js`));
  const backend=createServer({catalogProvider:{enabled:true,call:async()=>({products:[{id:'gid://shopify/p/test',title:'Synthetic test product',variants:[{id:'gid://shopify/ProductVariant/1',price:{amount:1000,currency:'USD'},availability:{available:true}},{id:'gid://shopify/ProductVariant/2',price:{amount:1200,currency:'USD'},availability:{available:true}}]}],product:{id:'gid://shopify/p/test',title:'Synthetic detail',variants:[]}})}});await new Promise(r=>backend.listen(0,'127.0.0.1',r));
- const transport=new StdioClientTransport({command:process.execPath,args:[fileURLToPath(new URL('../src/index.js',import.meta.url))],env:{...process.env,SHOPPINGSCOUT_BASE_URL:`http://127.0.0.1:${backend.address().port}`},stderr:'pipe'});
- const client=new Client({name:'shoppingscout-integration',version:'1.0.0'});
+ const transport=new StdioClientTransport({command:process.execPath,args:[fileURLToPath(new URL('../src/index.js',import.meta.url))],env:{...process.env,SHOPSCOUT_BASE_URL:`http://127.0.0.1:${backend.address().port}`},stderr:'pipe'});
+ const client=new Client({name:'shopscout-integration',version:'1.0.0'});
  let errors='';transport.stderr?.on('data',chunk=>errors+=chunk.toString());
  try {
   await client.connect(transport);

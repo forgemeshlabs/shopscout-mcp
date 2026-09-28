@@ -1,24 +1,24 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.forgemeshlabs/shoppingscout-mcp",
+  "name": "io.github.forgemeshlabs/shopscout-mcp",
   "description": "Search products, compare variant offers and estimate shipping plans. No automatic payments.",
   "repository": {
-    "url": "https://github.com/forgemeshlabs/shoppingscout-mcp",
+    "url": "https://github.com/forgemeshlabs/shopscout-mcp",
     "source": "github"
   },
   "version": "0.2.0",
   "packages": [
     {
       "registryType": "npm",
-      "identifier": "@forgemeshlabs/shoppingscout-mcp",
+      "identifier": "@forgemeshlabs/shopscout-mcp",
       "version": "0.2.0",
       "transport": {
         "type": "stdio"
       },
       "environmentVariables": [
         {
-          "name": "SHOPPINGSCOUT_BASE_URL",
-          "description": "Trusted ShoppingScout HTTPS API origin; localhost HTTP allowed for development. No paths or credentials.",
+          "name": "SHOPSCOUT_BASE_URL",
+          "description": "Trusted ShopScout HTTPS API origin; localhost HTTP allowed for development. No paths or credentials.",
           "isRequired": true,
           "isSecret": false,
           "format": "string"

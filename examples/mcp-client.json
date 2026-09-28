@@ -1,9 +1,9 @@
 {
   "mcpServers": {
-    "shoppingscout": {
+    "shopscout": {
       "command": "node",
-      "args": ["/home/ubuntu/dev/shoppingscout-mcp/src/index.js"],
-      "env": {"SHOPPINGSCOUT_BASE_URL": "http://127.0.0.1:3478"}
+      "args": ["/home/ubuntu/dev/shopscout-mcp/src/index.js"],
+      "env": {"SHOPSCOUT_BASE_URL": "http://127.0.0.1:3478"}
     }
   }
 }
