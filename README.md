@@ -1,5 +1,7 @@
 # ForgeMesh ShopScout MCP
 
+[![ShopScout MCP server – quality and maintenance score on Glama](https://glama.ai/mcp/servers/forgemeshlabs/shopscout-mcp/badges/score.svg)](https://glama.ai/mcp/servers/forgemeshlabs/shopscout-mcp)
+
 **Let your agent shop and compare.**
 
 Stdio MCP server for [ShopScout by ForgeMesh](https://forgemesh.io/shopscout): product search over the Shopify Global Catalog, variant lookup, offer comparison, capability discovery and shipping-plan comparison, paid per call in USDC on Base via x402 ($0.01 per call, no API key). Points at the hosted API https://shopscout.forgemesh.io by default; a local backend works for development. Monitoring (price/stock/shipping watches) remains planned.
