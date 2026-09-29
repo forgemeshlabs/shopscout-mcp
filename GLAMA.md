@@ -1,6 +1,6 @@
 # Glama build and runtime instructions
 
-Status: repository preparation only. No npm publication, public repository, Glama submission, hosted build or official badge has been verified. Keep the package private until release approval.
+Status: published 2026-09-29 as npm `@forgemeshlabs/shopscout-mcp` 0.3.0 (public repository https://github.com/forgemeshlabs/shopscout-mcp, MCP Registry `io.github.forgemeshlabs/shopscout-mcp`). Glama submission and hosted-build badge not yet verified.
 
 ## Repository and Dockerfile
 
@@ -41,14 +41,14 @@ Do not enter a shell string or nested arrays. Do not add `mcp-proxy` unless the 
 }
 ```
 
-No wallet/private-key variable is supported. For local tool-discovery inspection, `http://127.0.0.1:3478` is sufficient because initialization/list-tools makes no backend request. Hosted tool calls need a reachable approved backend; localhost inside a hosted container does not refer to the operator's computer.
+`WALLET_PRIVATE_KEY` is optional: with it the server pays the $0.01 x402 fee per paid tool call (capped by `SHOPSCOUT_MAX_PRICE_USD`); without it paid tools return the 402 challenge as data. The default backend is the hosted https://shopscout.forgemesh.io, so a hosted container needs no local backend; initialization/list-tools makes no backend request.
 
 ## Container
 
 ```bash
 docker build -t shopscout-mcp:local .
 docker run --rm -i --network=host \
-  -e SHOPSCOUT_BASE_URL=http://127.0.0.1:3478 shopscout-mcp:local
+  -e WALLET_PRIVATE_KEY=0x... shopscout-mcp:local
 ```
 
 The host-network example is for Linux local development. For a deployed backend, omit host networking and supply its HTTPS origin. Stdio protocol output goes to stdout; diagnostics go to stderr. The image runs as the non-root `node` user and contains only the MCP wrapper, not the backend or its credentials.

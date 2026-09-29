@@ -11,9 +11,9 @@ async function serve(handler) { const server=http.createServer(handler);await ne
 async function stop(server) {server.closeAllConnections();await new Promise(r=>server.close(r));}
 const sample=JSON.parse(readFileSync(new URL('../examples/shipping-request.json',import.meta.url)));
 
-test('stdio negotiation, five tools, planned capability visibility, validation and calculation',async()=>{
+test('stdio negotiation, five tools, planned capability visibility, validation and calculation',async(t)=>{
  const path=process.env.SHOPSCOUT_SERVER_PATH;
- assert.ok(path,'Set SHOPSCOUT_SERVER_PATH to the backend repo for this integration test');
+ if(!path){t.skip('SHOPSCOUT_SERVER_PATH unset: backend integration test skipped');return;}
  const {createServer}=await import(pathToFileURL(`${path}/src/server.js`));
  const backend=createServer({catalogProvider:{enabled:true,call:async()=>({products:[{id:'gid://shopify/p/test',title:'Synthetic test product',variants:[{id:'gid://shopify/ProductVariant/1',price:{amount:1000,currency:'USD'},availability:{available:true}},{id:'gid://shopify/ProductVariant/2',price:{amount:1200,currency:'USD'},availability:{available:true}}]}],product:{id:'gid://shopify/p/test',title:'Synthetic detail',variants:[]}})}});await new Promise(r=>backend.listen(0,'127.0.0.1',r));
  const transport=new StdioClientTransport({command:process.execPath,args:[fileURLToPath(new URL('../src/index.js',import.meta.url))],env:{...process.env,SHOPSCOUT_BASE_URL:`http://127.0.0.1:${backend.address().port}`},stderr:'pipe'});
@@ -78,4 +78,32 @@ test('402 challenge is inspectable without wallet access or automatic retry',asy
  let calls=0;
  const {server,url}=await serve((req,res)=>{calls++;res.writeHead(402,{'payment-required':Buffer.from(JSON.stringify(challenge)).toString('base64')});res.end('{}');});
  try{await assert.rejects(createApiClient({baseUrl:url})({method:'POST',path:'/v1/search'},{}),e=>e.code==='payment_required'&&JSON.stringify(e.paymentRequired)===JSON.stringify(challenge));assert.equal(calls,1);}finally{await stop(server);}
+});
+
+function challenge402(res,accept){const env={x402Version:2,error:'Payment required',resource:{url:'https://x.test/v1/search'},accepts:[{scheme:'exact',network:'eip155:8453',asset:'0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',amount:'10000',payTo:'0x0000000000000000000000000000000000000001',maxTimeoutSeconds:300,extra:{name:'USD Coin',version:'2'},...accept}]};res.writeHead(402,{'content-type':'application/json','payment-required':Buffer.from(JSON.stringify(env)).toString('base64')});res.end(JSON.stringify({error:{code:'payment_required'}}));}
+const TEST_KEY='0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d';
+
+test('wallet configured: pays a $0.01 exact-USDC-on-Base challenge once and reports the settlement',async()=>{
+ let calls=0,signed=null;
+ const {server,url}=await serve((req,res)=>{calls++;let b='';req.on('data',c=>b+=c);req.on('end',()=>{signed=req.headers['payment-signature']||null;if(!signed)return challenge402(res,{});res.writeHead(200,{'content-type':'application/json','payment-response':Buffer.from(JSON.stringify({success:true,transaction:'0x'+'ab'.repeat(32),network:'eip155:8453'})).toString('base64')});res.end(JSON.stringify({products:[]}));});});
+ try{
+  const request=createApiClient({baseUrl:url,walletKey:TEST_KEY,chainTime:false});
+  const out=await request({method:'POST',path:'/v1/search'},{query:'x',country:'US',currency:'USD'});
+  assert.equal(calls,2);assert.ok(signed,'second call carried payment-signature');
+  const payload=JSON.parse(Buffer.from(signed,'base64').toString());assert.equal(payload.x402Version,2);assert.equal(payload.accepted.amount,'10000');
+  assert.deepEqual(out.products,[]);assert.equal(out._payment.amount_usdc,'0.010000');assert.equal(out._payment.transaction,'0x'+'ab'.repeat(32));
+ }finally{await stop(server);}
+});
+
+test('wallet configured: refuses over-cap, wrong-network and rejected payments without paying twice',async()=>{
+ let calls=0;
+ const {server,url}=await serve((req,res)=>{calls++;let b='';req.on('data',c=>b+=c);req.on('end',()=>{if(req.url==='/over')return challenge402(res,{amount:'20000'});if(req.url==='/net')return challenge402(res,{network:'eip155:1'});challenge402(res,{});});});
+ try{
+  const request=createApiClient({baseUrl:url,walletKey:TEST_KEY,chainTime:false});
+  await assert.rejects(request({method:'POST',path:'/over'},{}),e=>e.code==='payment_over_cap');
+  await assert.rejects(request({method:'POST',path:'/net'},{}),e=>e.code==='payment_unsupported');
+  calls=0;await assert.rejects(request({method:'POST',path:'/v1/search'},{}),e=>e.code==='payment_rejected');assert.equal(calls,2,'exactly one signed retry, never a third attempt');
+  const noWallet=createApiClient({baseUrl:url,chainTime:false,walletKey:undefined});
+  await assert.rejects(noWallet({method:'POST',path:'/v1/search'},{}),e=>e.code==='payment_required'&&e.paymentRequired?.accepts?.length===1);
+ }finally{await stop(server);}
 });

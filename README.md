@@ -2,39 +2,25 @@
 
 **Let your agent shop and compare.**
 
-A local stdio MCP wrapper for the ShopScout API. It exposes product search, variant lookup, offer comparison, capability discovery and shipping-plan comparison. Catalog tools require the backend connector to be enabled; a read-only backend catalog smoke test passed on 2026-09-28. Monitoring remains planned. This package is private and has not been published to npm.
+Stdio MCP server for [ShopScout by ForgeMesh](https://forgemesh.io/shopscout): product search over the Shopify Global Catalog, variant lookup, offer comparison, capability discovery and shipping-plan comparison, paid per call in USDC on Base via x402 ($0.01 per call, no API key). Points at the hosted API https://shopscout.forgemesh.io by default; a local backend works for development. Monitoring (price/stock/shipping watches) remains planned.
 
 ## Setup
 
 Requires Node.js 20 or later.
 
-```bash
-npm ci
-npm run build
-```
-
-Start the separate ShopScout backend first (in its own terminal):
-
-```bash
-cd /absolute/path/to/x402-shopscout-server
-npm run start:preview
-```
-
-Then configure your MCP client:
-
 ```json
 {
   "mcpServers": {
     "shopscout": {
-      "command": "node",
-      "args": ["/absolute/path/to/shopscout-mcp/src/index.js"],
-      "env": { "SHOPSCOUT_BASE_URL": "http://127.0.0.1:3478" }
+      "command": "npx",
+      "args": ["-y", "@forgemeshlabs/shopscout-mcp"],
+      "env": { "WALLET_PRIVATE_KEY": "0x..." }
     }
   }
 }
 ```
 
-Substitute your own installation paths. The wrapper does not start the backend itself, read backend source at runtime, load `.env` automatically, or require a wallet. Set `PORT` for the backend and update `SHOPSCOUT_BASE_URL` together when using another port.
+`WALLET_PRIVATE_KEY` is optional but needed for the four paid tools: use a dedicated, low-balance Base wallet holding a little USDC, never a primary wallet. Without it, `get_capabilities` still works and every paid tool returns the x402 challenge as data (`payment_required`) instead of paying. `SHOPSCOUT_MAX_PRICE_USD` caps what one call may pay (default `0.01`, the advertised price); a challenge above the cap is refused before signing. `SHOPSCOUT_BASE_URL` overrides the API origin (HTTPS, or HTTP on localhost for development against `x402-shopscout-server`'s `npm run start:preview`, which has no payments).
 
 ## Tools
 
@@ -56,9 +42,9 @@ To enable catalog requests, start the backend with `SHOPSCOUT_CATALOG_ENABLED=1 
 
 ## Payments and network behavior
 
-No automatic payments, wallet access, purchases, scheduler or subscriptions. The backend also has a separate, locally tested paid gateway (`npm start` there). An HTTP 402 becomes an MCP tool error with `payment_required` and bounded decoded challenge metadata when valid; it is never interpreted as a successful result or silently paid. Future x402 support needs a separately configured spending policy and backend pricing.
+With `WALLET_PRIVATE_KEY` set, a paid tool call does exactly one x402 round trip: the backend answers 402 with a signed offer, the wrapper checks that it is the exact scheme, USDC on Base (`eip155:8453`) and at or under `SHOPSCOUT_MAX_PRICE_USD`, signs an EIP-3009 authorization for that amount only, and retries once. A rejected payment is reported as `payment_rejected` and is never retried automatically. Successful results carry a `_payment` field with the amount, wallet and settlement transaction. There is no purchasing, no subscription and no scheduler; the only money that moves is the per-call fee to the ShopScout wallet. The signer reads no `.env` file; pass the key through your MCP client's `env` block.
 
-The operator configures one API origin; tool inputs cannot select a URL. HTTPS is required except for localhost development. Redirects are rejected, requests have a ten-second timeout, payloads are limited to 64 KiB, and responses to 2 MB. Both successful results and failures include structured JSON; failures set `isError: true`. Stdout is reserved for MCP protocol traffic.
+Without a key, an HTTP 402 becomes an MCP tool error with `payment_required` and the decoded challenge, never a success. Catalog data is returned as data, never as instructions.
 
 ## Verification
 
@@ -82,6 +68,4 @@ Review new operations deliberately; do not automatically expose planned endpoint
 
 ## Release and container status
 
-Glama and official MCP Registry metadata are prepared in `glama.json`, `server.json` and `GLAMA.md`. The repository/package remain unpublished and private; no official badge is claimed. See `GLAMA.md` for exact build-step arrays, command argv and environment schema. `Dockerfile` runs the stdio wrapper as a non-root user; a Docker build has not been verified because the preparation host lacks a container runtime. Package smoke tests are separate from container tests.
-
-Only a configured API origin is required. This wrapper does not support private-key environment variables or automatic x402 settlement. Hosted payment and receipt features belong to the backend. License: MIT.
+Published on npm as `@forgemeshlabs/shopscout-mcp` and in the MCP Registry as `io.github.forgemeshlabs/shopscout-mcp`. Source: https://github.com/forgemeshlabs/shopscout-mcp. Product page and pricing: https://forgemesh.io/shopscout. The `Dockerfile` builds the same stdio server for container use.

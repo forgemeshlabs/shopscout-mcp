@@ -1,7 +1,7 @@
 {
   "name": "@forgemeshlabs/shopscout-mcp",
-  "version": "0.2.0",
-  "private": true,
+  "version": "0.3.0",
+  "private": false,
   "type": "module",
   "description": "ShopScout: product search, variant offers and shipping-plan comparison for agents",
   "bin": {
@@ -29,7 +29,10 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.30.0",
-    "ajv": "8.17.1"
+    "ajv": "8.17.1",
+    "@x402/core": "^2.17.0",
+    "@x402/evm": "^2.17.0",
+    "viem": "^2.54.2"
   },
   "license": "MIT",
   "author": "ForgeMesh Labs",
@@ -45,5 +48,9 @@
     "product-search",
     "shipping",
     "x402"
-  ]
+  ],
+  "homepage": "https://forgemesh.io/shopscout",
+  "publishConfig": {
+    "access": "public"
+  }
 }

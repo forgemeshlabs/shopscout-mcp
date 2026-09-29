@@ -1,29 +1,53 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.forgemeshlabs/shopscout-mcp",
-  "description": "Search products, compare variant offers and estimate shipping plans. No automatic payments.",
+  "description": "Let your agent shop and compare: Shopify catalog search, offer comparison and shipping-plan estimates, $0.01 USDC per call via x402 on Base. Optional wallet pays per call; no purchases.",
   "repository": {
     "url": "https://github.com/forgemeshlabs/shopscout-mcp",
     "source": "github"
   },
-  "version": "0.2.0",
+  "version": "0.3.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@forgemeshlabs/shopscout-mcp",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "transport": {
         "type": "stdio"
       },
       "environmentVariables": [
         {
+          "name": "WALLET_PRIVATE_KEY",
+          "description": "Optional. Private key of a dedicated low-balance Base wallet holding USDC; pays $0.01 per paid tool call via x402. Without it paid tools return the 402 challenge as data.",
+          "isRequired": false,
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "SHOPSCOUT_MAX_PRICE_USD",
+          "description": "Optional. Per-call payment cap in USD (default 0.01).",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "string"
+        },
+        {
           "name": "SHOPSCOUT_BASE_URL",
-          "description": "Trusted ShopScout HTTPS API origin; localhost HTTP allowed for development. No paths or credentials.",
-          "isRequired": true,
+          "description": "Optional. API origin override (default https://shopscout.forgemesh.io); HTTPS, or HTTP on localhost for development.",
+          "isRequired": false,
           "isSecret": false,
           "format": "string"
         }
       ]
     }
-  ]
+  ],
+  "icons": [
+    {
+      "src": "https://forgemesh.io/favicon.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "1254x1254"
+      ]
+    }
+  ],
+  "websiteUrl": "https://forgemesh.io/shopscout"
 }
