@@ -1,7 +1,7 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.forgemeshlabs/shopscout-mcp",
-  "description": "Let your agent shop and compare: Shopify catalog search, offer comparison and shipping-plan estimates, $0.01 USDC per call via x402 on Base. Optional wallet pays per call; no purchases.",
+  "description": "Let your agent shop and compare: Shopify catalog search, offer ranking, shipping plans. $0.01/call.",
   "repository": {
     "url": "https://github.com/forgemeshlabs/shopscout-mcp",
     "source": "github"
