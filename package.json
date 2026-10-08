@@ -1,6 +1,6 @@
 {
   "name": "@forgemeshlabs/shopscout-mcp",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": false,
   "type": "module",
   "description": "ShopScout: product search, variant offers and shipping-plan comparison for agents",
