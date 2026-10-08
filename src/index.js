@@ -5,6 +5,6 @@ try {
   const server = createMcpServer();
   await server.connect(new StdioServerTransport());
 } catch {
-  console.error('ShopScout MCP failed to start. Check SHOPSCOUT_BASE_URL and installed dependencies.');
+  console.error('ShopScout MCP failed to start. Check installed dependencies.');
   process.exitCode = 1;
 }

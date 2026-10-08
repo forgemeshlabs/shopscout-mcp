@@ -1,15 +1,10 @@
+import { createRequire } from 'node:module';
+const { createGuard } = createRequire(import.meta.url)('../x402-guard.cjs');
 export class ApiError extends Error {
   constructor(code, message, status) { super(message); this.code = code; this.status = status; }
 }
-export const DEFAULT_BASE_URL = 'https://shopscout.forgemesh.io';
-export function parseBaseUrl(value = DEFAULT_BASE_URL) {
-  const url = new URL(value);
-  if (url.username || url.password || url.search || url.hash || url.pathname !== '/') throw new Error('SHOPSCOUT_BASE_URL must be an origin without credentials, path, query or fragment');
-  if (!(url.protocol === 'https:' || url.protocol === 'http:' && ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname))) throw new Error('Use HTTPS, or HTTP on localhost for development');
-  return url.origin;
-}
-const USDC_BASE = '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913';
-const NETWORK = 'eip155:8453';
+export const BASE_URL = 'https://shopscout.forgemesh.io';
+const PAY_TO = ['0xabf4Fc4Feda1E02444247650a23f4acB4E308f66'];
 function parseChallenge(response) {
   const header = response.headers.get('payment-required');
   if (!header || header.length > 16384) return null;
@@ -19,93 +14,71 @@ function parseChallenge(response) {
   } catch { /* malformed metadata: treat as no challenge */ }
   return null;
 }
-// x402 payer (fleet MCP convention, same as utility-grid-mcp): optional WALLET_PRIVATE_KEY for a
-// dedicated low-balance Base wallet; every paid call is capped at SHOPSCOUT_MAX_PRICE_USD (default
-// $0.01, the advertised price). No key → the 402 is surfaced as data, never signed.
-function createPayer({ walletKey, maxPriceUsd, chainTime, rpcUrl }) {
-  if (!walletKey) return null;
-  const cap = BigInt(Math.round(Number(maxPriceUsd) * 1e6));
-  if (!(cap > 0n)) throw new Error('SHOPSCOUT_MAX_PRICE_USD must be a positive number');
+// x402 payer (fleet MCP convention): optional WALLET_PRIVATE_KEY for a dedicated low-balance Base wallet.
+// Signing is gated by x402-guard (Base USDC only, this backend's payee only, <= $0.01 per call; the
+// X402_MAX_PRICE_USD / X402_SESSION_BUDGET_USD env vars can only lower the caps). No key → the 402 is
+// surfaced as data, never signed.
+function createHttpClient(walletKey, guard) {
+  if (!walletKey) {
+    return {
+      getPaymentRequiredResponse(get) {
+        const error = new ApiError('payment_required', 'This route costs USDC via x402. Set WALLET_PRIVATE_KEY to a dedicated low-balance Base wallet holding a little USDC to let this MCP pay per call (capped at $0.01 per call), or call the HTTP API with your own x402 client.', 402);
+        const challenge = parseChallenge({ headers: { get } });
+        if (challenge) error.paymentRequired = challenge;
+        throw error;
+      }
+    };
+  }
   let ready;
   const load = () => (ready ??= (async () => {
     const [{ x402Client, x402HTTPClient }, { ExactEvmScheme }, { toClientEvmSigner }, { privateKeyToAccount }] = await Promise.all([
       import('@x402/core/client'), import('@x402/evm/exact/client'), import('@x402/evm'), import('viem/accounts')
     ]);
     const account = privateKeyToAccount(walletKey.startsWith('0x') ? walletKey : `0x${walletKey}`);
-    const http = new x402HTTPClient(new x402Client().register('eip155:*', new ExactEvmScheme(toClientEvmSigner(account))));
-    let chainNow = null;
-    if (chainTime) {
-      try {
-        const { createPublicClient, http: transport } = await import('viem'); const { base } = await import('viem/chains');
-        chainNow = async () => Number((await createPublicClient({ chain: base, transport: transport(rpcUrl) }).getBlock()).timestamp);
-      } catch { chainNow = null; }
-    }
-    return { http, chainNow };
+    return new x402HTTPClient(new x402Client().register('eip155:*', new ExactEvmScheme(toClientEvmSigner(account))).registerPolicy(guard.policy));
   })());
   return {
-    cap,
-    async sign(challenge, headerGetter, body) {
-      const { http, chainNow } = await load();
-      const pr = http.getPaymentRequiredResponse(headerGetter, body);
-      // Base block time can trail the local clock; align validAfter/validBefore to the chain when reachable.
-      const orig = Date.now;
-      if (chainNow) { try { const c = await chainNow(); const t = Number(challenge.accepts[0].maxTimeoutSeconds || 300); const s = Math.min(Math.max(c, Math.floor(orig() / 1000) + 30 - t), c + 600); Date.now = () => s * 1000; } catch { Date.now = orig; } }
-      try { return http.encodePaymentSignatureHeader(await http.createPaymentPayload(pr)); } finally { Date.now = orig; }
-    }
+    async callPaid(path, opts) { return guard.callPaid(await load(), path, opts); }
   };
 }
-export function createApiClient({
-  baseUrl = parseBaseUrl(process.env.SHOPSCOUT_BASE_URL), timeoutMs = 10000,
-  walletKey = process.env.WALLET_PRIVATE_KEY, maxPriceUsd = process.env.SHOPSCOUT_MAX_PRICE_USD || '0.01',
-  chainTime = true, rpcUrl = process.env.SHOPSCOUT_RPC_URL || 'https://mainnet.base.org'
-} = {}) {
-  baseUrl = parseBaseUrl(baseUrl);
-  const payer = createPayer({ walletKey, maxPriceUsd, chainTime, rpcUrl });
+const catalogCodes = new Set(['catalog_not_configured','catalog_rate_limited','catalog_unavailable','catalog_timeout','catalog_payment_required','catalog_tool_error','invalid_catalog_response','payment_already_used','settlement_unconfirmed']);
+// Translate guard.callPaid errors ("HTTP <status>: <body, max 200 chars>") into the tool's ApiError codes.
+function mapError(error) {
+  if (error instanceof ApiError) return error;
+  const m = String(error?.message || '');
+  let hit;
+  if (/refused to sign|were rejected by|No network\/scheme/.test(m)) return new ApiError('payment_refused', m.slice(0, 400), 402);
+  if ((hit = m.match(/^Payment failed — HTTP (\d+)/))) return new ApiError('payment_rejected', 'The signed payment was not accepted. Check the wallet USDC balance on Base and retry once.', Number(hit[1]));
+  if ((hit = m.match(/^HTTP (\d+): non-JSON response/))) return new ApiError('invalid_upstream_response', 'Backend did not return valid JSON', Number(hit[1]));
+  if ((hit = m.match(/^HTTP (\d+): ([\s\S]*)/))) {
+    const status = Number(hit[1]);
+    const code = (hit[2].match(/"code"\s*:\s*"([a-z_]+)"/) || [])[1];
+    return new ApiError(status === 501 ? 'capability_planned' : catalogCodes.has(code) ? code : 'upstream_error', 'Backend request failed', status);
+  }
+  if (['TimeoutError','AbortError'].includes(error?.name)) return new ApiError('upstream_timeout', 'Backend request timed out');
+  return new ApiError('backend_unavailable', 'Cannot reach the ShopScout backend');
+}
+export function createApiClient({ walletKey = process.env.WALLET_PRIVATE_KEY } = {}) {
+  const guard = createGuard({ baseUrl: BASE_URL, payTo: PAY_TO, maxPriceUsd: 0.01, sessionBudgetUsd: 10 });
+  const payer = createHttpClient(walletKey, guard);
   return async function request(route, args, signal) {
-    const body = route.method === 'POST' ? JSON.stringify(args) : undefined;
-    if (body && Buffer.byteLength(body) > 65536) throw new ApiError('payload_too_large', 'Input exceeds 64 KiB');
-    const send = (extraHeaders = {}) => fetch(new URL(route.path, baseUrl), {
-      method: route.method, redirect: 'error', headers: { Accept: 'application/json', ...(body ? { 'Content-Type': 'application/json' } : {}), ...extraHeaders }, body,
-      signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]) : AbortSignal.timeout(timeoutMs)
-    });
-    let response, data, payment = null;
+    const body = route.method === 'POST' ? args : undefined;
+    if (body && Buffer.byteLength(JSON.stringify(body)) > 65536) throw new ApiError('payload_too_large', 'Input exceeds 64 KiB');
+    const opts = { method: route.method, body, headers: { Accept: 'application/json' } };
+    const call = payer.callPaid
+      ? payer.callPaid(route.path, opts)
+      : guard.callPaid(payer, route.path, opts);
+    let aborted;
+    const cancelled = new Promise((_, reject) => { aborted = () => reject(new ApiError('request_cancelled', 'Tool call cancelled')); if (signal?.aborted) aborted(); else signal?.addEventListener('abort', aborted, { once: true }); });
     try {
-      response = await send();
-      if (response.status === 402) {
-        const challenge = parseChallenge(response);
-        if (!payer) {
-          await response.body?.cancel();
-          const error = new ApiError('payment_required', 'This route costs USDC via x402. Set WALLET_PRIVATE_KEY to a dedicated low-balance Base wallet holding a little USDC to let this MCP pay per call (capped by SHOPSCOUT_MAX_PRICE_USD, default $0.01), or call the HTTP API with your own x402 client.', 402);
-          if (challenge) error.paymentRequired = challenge;
-          throw error;
-        }
-        if (!challenge) { await response.body?.cancel(); throw new ApiError('payment_required', 'Backend sent a 402 without a readable x402 challenge; not paying.', 402); }
-        const accept = challenge.accepts[0];
-        const amount = BigInt(accept.amount ?? accept.maxAmountRequired ?? 0);
-        if (accept.network !== NETWORK || String(accept.asset).toLowerCase() !== USDC_BASE || accept.scheme !== 'exact') { await response.body?.cancel(); throw new ApiError('payment_unsupported', `Challenge is not exact USDC on Base (${accept.scheme} ${accept.network} ${accept.asset}); not paying.`, 402); }
-        if (amount > payer.cap) { await response.body?.cancel(); throw new ApiError('payment_over_cap', `Challenge asks ${Number(amount) / 1e6} USDC, above the SHOPSCOUT_MAX_PRICE_USD cap of ${Number(payer.cap) / 1e6}; not paying.`, 402); }
-        let challengeBody = null; try { challengeBody = await response.json(); } catch { /* header carries the envelope */ }
-        const header = await payer.sign(challenge, (n) => response.headers.get(n), challengeBody);
-        response = await send(header);
-        if (response.status === 402) { await response.body?.cancel(); throw new ApiError('payment_rejected', 'The signed payment was not accepted; nothing was settled. Check the wallet USDC balance on Base and retry once.', 402); }
-        payment = { amount_usdc: (Number(amount) / 1e6).toFixed(6), pay_to: accept.payTo, network: NETWORK };
-        const settle = response.headers.get('payment-response');
-        if (settle) { try { const s = JSON.parse(Buffer.from(settle, 'base64').toString()); if (s.transaction) payment.transaction = s.transaction; } catch { /* keep amount only */ } }
-      }
-      const reader = response.body?.getReader(); const chunks = []; let size = 0;
-      if (reader) for (;;) { const { done, value } = await reader.read(); if (done) break; size += value.length; if (size > 2_000_000) { await reader.cancel(); throw new ApiError('response_too_large', 'Backend response exceeds 2 MB'); } chunks.push(value); }
-      const raw = Buffer.concat(chunks).toString();
-      try { data = JSON.parse(raw); } catch { throw new ApiError('invalid_upstream_response', 'Backend did not return valid JSON', response.status); }
-      if (!data || typeof data !== 'object' || Array.isArray(data)) throw new ApiError('invalid_upstream_response', 'Backend response must be a JSON object', response.status);
-      const catalogCodes = new Set(['catalog_not_configured','catalog_rate_limited','catalog_unavailable','catalog_timeout','catalog_payment_required','catalog_tool_error','invalid_catalog_response','payment_already_used','settlement_unconfirmed']);
-      if (!response.ok) throw new ApiError(response.status === 501 ? 'capability_planned' : catalogCodes.has(data.error?.code) ? data.error.code : 'upstream_error', typeof data.error?.message === 'string' ? data.error.message : 'Backend request failed', response.status);
-      if (payment) data._payment = payment;
+      const data = await Promise.race([call, cancelled]);
+      if (!data || typeof data !== 'object' || Array.isArray(data) || data._binary) throw new ApiError('invalid_upstream_response', 'Backend response must be a JSON object');
       return data;
     } catch (error) {
-      if (error instanceof ApiError) throw error;
-      if (signal?.aborted) throw new ApiError('request_cancelled', 'Tool call cancelled');
-      if (['TimeoutError','AbortError'].includes(error.name)) throw new ApiError('upstream_timeout', 'Backend request timed out');
-      throw new ApiError('backend_unavailable', 'Cannot reach the configured ShopScout backend');
+      throw mapError(error);
+    } finally {
+      signal?.removeEventListener('abort', aborted);
+      call.catch(() => {}); // a losing race branch must not surface as an unhandled rejection
     }
   };
 }

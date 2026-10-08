@@ -9,6 +9,7 @@
   },
   "files": [
     "src",
+    "x402-guard.cjs",
     "contracts",
     "tool-manifest.json",
     "server.json",

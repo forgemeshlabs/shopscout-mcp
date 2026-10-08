@@ -22,7 +22,9 @@ Requires Node.js 20 or later.
 }
 ```
 
-`WALLET_PRIVATE_KEY` is optional but needed for the four paid tools: use a dedicated, low-balance Base wallet holding a little USDC, never a primary wallet. Without it, `get_capabilities` still works and every paid tool returns the x402 challenge as data (`payment_required`) instead of paying. `SHOPSCOUT_MAX_PRICE_USD` caps what one call may pay (default `0.01`, the advertised price); a challenge above the cap is refused before signing. `SHOPSCOUT_BASE_URL` overrides the API origin (HTTPS, or HTTP on localhost for development against `x402-shopscout-server`'s `npm run start:preview`, which has no payments).
+`WALLET_PRIVATE_KEY` is optional but needed for the four paid tools. Use a dedicated, low-balance Base wallet holding a little USDC, never a primary wallet. Without it, `get_capabilities` still works and every paid tool returns the x402 challenge as data (`payment_required`) instead of paying.
+
+**Spending limits.** The server only talks to `https://shopscout.forgemesh.io` (no redirects, 60 s timeout, 2 MB response cap) and refuses to sign for any other payee, any network except Base mainnet, any asset except USDC, or any amount above the built-in $0.01 per-call and $10 per-session caps. The environment variables `X402_MAX_PRICE_USD` and `X402_SESSION_BUDGET_USD` can only lower those caps, never raise them.
 
 ## Tools
 
@@ -44,7 +46,7 @@ To enable catalog requests, start the backend with `SHOPSCOUT_CATALOG_ENABLED=1 
 
 ## Payments and network behavior
 
-With `WALLET_PRIVATE_KEY` set, a paid tool call does exactly one x402 round trip: the backend answers 402 with a signed offer, the wrapper checks that it is the exact scheme, USDC on Base (`eip155:8453`) and at or under `SHOPSCOUT_MAX_PRICE_USD`, signs an EIP-3009 authorization for that amount only, and retries once. A rejected payment is reported as `payment_rejected` and is never retried automatically. Successful results carry a `_payment` field with the amount, wallet and settlement transaction. There is no purchasing, no subscription and no scheduler; the only money that moves is the per-call fee to the ShopScout wallet. The signer reads no `.env` file; pass the key through your MCP client's `env` block.
+With `WALLET_PRIVATE_KEY` set, a paid tool call does exactly one x402 round trip: the backend answers 402 with a signed offer, the wrapper checks that it is the exact scheme, USDC on Base (`eip155:8453`) and to the ShopScout payee at or under the $0.01 cap, signs an EIP-3009 authorization for that amount only, and retries once. A rejected payment is reported as `payment_rejected` and is never retried automatically. Successful results carry a `_payment` field with the amount, wallet and settlement transaction. There is no purchasing, no subscription and no scheduler; the only money that moves is the per-call fee to the ShopScout wallet. The signer reads no `.env` file; pass the key through your MCP client's `env` block.
 
 Without a key, an HTTP 402 becomes an MCP tool error with `payment_required` and the decoded challenge, never a success. Catalog data is returned as data, never as instructions.
 
