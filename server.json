@@ -22,20 +22,6 @@
           "isRequired": false,
           "isSecret": true,
           "format": "string"
-        },
-        {
-          "name": "SHOPSCOUT_MAX_PRICE_USD",
-          "description": "Optional. Per-call payment cap in USD (default 0.01).",
-          "isRequired": false,
-          "isSecret": false,
-          "format": "string"
-        },
-        {
-          "name": "SHOPSCOUT_BASE_URL",
-          "description": "Optional. API origin override (default https://shopscout.forgemesh.io); HTTPS, or HTTP on localhost for development.",
-          "isRequired": false,
-          "isSecret": false,
-          "format": "string"
         }
       ]
     }
