@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.3
+
+- Dependencies: lockfile refresh resolving the open npm advisories (zod via @x402/core, body-parser, fast-uri, qs, ip-address, @hono/node-server as applicable). No behavior change.
+
 ## 0.3.0 — 2026-09-29
 
 - First public release: npm `@forgemeshlabs/shopscout-mcp`, default API origin https://shopscout.forgemesh.io.
