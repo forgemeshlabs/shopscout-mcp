@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.4
+
+- Tool text refreshed from the live service contract: search_products now documents that a search with nothing related answers 404 no_match without charge; compare_offers documents the same 404 for unknown variant ids.
+- Error paths now surface the service refusal (HTTP status, `charged`, service code and message) instead of a generic "Backend request failed".
+
 ## 0.3.3
 
 - Dependencies: lockfile refresh resolving the open npm advisories (zod via @x402/core, body-parser, fast-uri, qs, ip-address, @hono/node-server as applicable). No behavior change.

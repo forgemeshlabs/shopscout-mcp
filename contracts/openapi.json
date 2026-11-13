@@ -1,767 +1,1607 @@
 {
-  "openapi": "3.1.0",
-  "info": {
-    "title": "ForgeMesh ShopScout",
-    "version": "0.2.0",
-    "description": "Local catalog connector and shipping calculator. Catalog access requires configuration; monitoring remains planned. No payments or purchases."
-  },
-  "servers": [
-    {
-      "url": "http://127.0.0.1:3478",
-      "description": "Local development only; set PORT if occupied"
-    }
-  ],
-  "paths": {
-    "/v1/search": {
-      "post": {
-        "operationId": "search_products",
-        "summary": "Search Shopify catalog products by query, destination and currency. Requires an enabled catalog connector.",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "query": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 500,
-                    "pattern": "\\S"
-                  },
-                  "country": {
-                    "type": "string",
-                    "pattern": "^[A-Z]{2}$"
-                  },
-                  "currency": {
-                    "type": "string",
-                    "pattern": "^[A-Z]{3}$"
-                  },
-                  "limit": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "maximum": 20,
-                    "default": 10
-                  },
-                  "cursor": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 4096
-                  },
-                  "min_price_minor": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "maximum": 1000000000
-                  },
-                  "max_price_minor": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "maximum": 1000000000
-                  }
-                },
-                "required": [
-                  "query",
-                  "country",
-                  "currency"
-                ]
-              }
-            }
-          }
+    "openapi": "3.1.0",
+    "info": {
+        "title": "ForgeMesh ShopScout",
+        "version": "0.3.0",
+        "description": "Local catalog connector and shipping calculator. Catalog access requires configuration; monitoring remains planned. No payments or purchases.",
+        "contact": {
+            "email": "clawdbotworker@gmail.com"
         },
-        "responses": {
-          "200": {
-            "description": "Source-attributed products or offer comparison; unknown costs remain null",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request exceeds 64 KiB",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Content-Type must be application/json",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          },
-          "502": {
-            "description": "Catalog failed or response unsupported",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Catalog disabled or rate limited",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          },
-          "504": {
-            "description": "Catalog timed out",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          }
-        }
-      }
+        "x-guidance": "Start with /v1/capabilities. Search products, then refresh exact variants and compare item prices. Shipping comparison uses supplied rules, not live carrier rates. Valid empty searches are charged; upstream errors are not settled. No automatic purchases. Planned operations return 501 and are never charged. MCP requires a separate payer and does not auto-pay."
     },
-    "/v1/products/get": {
-      "post": {
-        "operationId": "get_product",
-        "summary": "Retrieve current catalog details and variant options by Shopify identifier. Does not verify checkout or delivery.",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "id": {
-                    "type": "string",
-                    "pattern": "^gid://shopify/(p|ProductVariant)/[a-zA-Z0-9_-]+$",
-                    "maxLength": 200
-                  },
-                  "country": {
-                    "type": "string",
-                    "pattern": "^[A-Z]{2}$"
-                  },
-                  "currency": {
-                    "type": "string",
-                    "pattern": "^[A-Z]{3}$"
-                  },
-                  "selected": {
-                    "type": "array",
-                    "maxItems": 10,
-                    "items": {
-                      "type": "object",
-                      "additionalProperties": false,
-                      "properties": {
-                        "name": {
-                          "type": "string",
-                          "minLength": 1,
-                          "maxLength": 100
-                        },
-                        "label": {
-                          "type": "string",
-                          "minLength": 1,
-                          "maxLength": 100
+    "servers": [
+        {
+            "url": "https://shopscout.forgemesh.io"
+        }
+    ],
+    "paths": {
+        "/v1/search": {
+            "post": {
+                "operationId": "search_products",
+                "summary": "Search Shopify catalog products by query, destination and currency. Returns products whose title, seller, type or tags share a term with the query; unrelated catalog suggestions are dropped, and a search with nothing related answers 404 no_match without charge.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "query": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 500,
+                                        "pattern": "\\S"
+                                    },
+                                    "country": {
+                                        "type": "string",
+                                        "pattern": "^[A-Z]{2}$"
+                                    },
+                                    "currency": {
+                                        "type": "string",
+                                        "pattern": "^[A-Z]{3}$"
+                                    },
+                                    "limit": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 20,
+                                        "default": 10
+                                    },
+                                    "cursor": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 4096
+                                    },
+                                    "min_price_minor": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 1000000000
+                                    },
+                                    "max_price_minor": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 1000000000
+                                    }
+                                },
+                                "required": [
+                                    "query",
+                                    "country",
+                                    "currency"
+                                ]
+                            }
                         }
-                      },
-                      "required": [
-                        "name",
-                        "label"
-                      ]
                     }
-                  }
                 },
-                "required": [
-                  "id",
-                  "country",
-                  "currency"
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Source-attributed products or offer comparison; unknown costs remain null",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request exceeds 64 KiB",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Content-Type must be application/json",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          },
-          "502": {
-            "description": "Catalog failed or response unsupported",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Catalog disabled or rate limited",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          },
-          "504": {
-            "description": "Catalog timed out",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/compare": {
-      "post": {
-        "operationId": "compare_offers",
-        "summary": "Refresh specified variant offers and rank available offers by item price in one currency. Equivalence and landed totals are not verified.",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "variant_ids": {
-                    "type": "array",
-                    "minItems": 2,
-                    "maxItems": 10,
-                    "uniqueItems": true,
-                    "items": {
-                      "type": "string",
-                      "pattern": "^gid://shopify/ProductVariant/[0-9]+$",
-                      "maxLength": 200
+                "responses": {
+                    "200": {
+                        "description": "Source-attributed products or offer comparison; unknown costs remain null",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "status",
+                                        "source",
+                                        "products",
+                                        "charged"
+                                    ],
+                                    "properties": {
+                                        "status": {
+                                            "type": "string"
+                                        },
+                                        "charged": {
+                                            "type": "boolean"
+                                        },
+                                        "source": {
+                                            "type": "object",
+                                            "required": [
+                                                "id",
+                                                "retrieved_at"
+                                            ],
+                                            "properties": {
+                                                "id": {
+                                                    "type": "string"
+                                                },
+                                                "retrieved_at": {
+                                                    "type": "string"
+                                                },
+                                                "merchant_verified_at": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                }
+                                            }
+                                        },
+                                        "products": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "required": [
+                                                    "product_id",
+                                                    "title",
+                                                    "offers"
+                                                ],
+                                                "properties": {
+                                                    "product_id": {
+                                                        "type": "string"
+                                                    },
+                                                    "title": {
+                                                        "type": "string"
+                                                    },
+                                                    "offers": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "object",
+                                                            "required": [
+                                                                "variant_id",
+                                                                "price",
+                                                                "available",
+                                                                "landed_total_minor"
+                                                            ],
+                                                            "properties": {
+                                                                "variant_id": {
+                                                                    "type": [
+                                                                        "string",
+                                                                        "null"
+                                                                    ]
+                                                                },
+                                                                "price": {
+                                                                    "anyOf": [
+                                                                        {
+                                                                            "type": "null"
+                                                                        },
+                                                                        {
+                                                                            "type": "object",
+                                                                            "required": [
+                                                                                "amount_minor",
+                                                                                "currency"
+                                                                            ],
+                                                                            "properties": {
+                                                                                "amount_minor": {
+                                                                                    "type": "integer",
+                                                                                    "minimum": 0
+                                                                                },
+                                                                                "currency": {
+                                                                                    "type": "string"
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                    ]
+                                                                },
+                                                                "available": {
+                                                                    "type": [
+                                                                        "boolean",
+                                                                        "null"
+                                                                    ]
+                                                                },
+                                                                "seller": {
+                                                                    "type": "object"
+                                                                },
+                                                                "checkout_url": {
+                                                                    "type": [
+                                                                        "string",
+                                                                        "null"
+                                                                    ]
+                                                                },
+                                                                "shipping_minor": {
+                                                                    "type": [
+                                                                        "integer",
+                                                                        "null"
+                                                                    ],
+                                                                    "minimum": 0
+                                                                },
+                                                                "tax_minor": {
+                                                                    "type": [
+                                                                        "integer",
+                                                                        "null"
+                                                                    ],
+                                                                    "minimum": 0
+                                                                },
+                                                                "duties_minor": {
+                                                                    "type": [
+                                                                        "integer",
+                                                                        "null"
+                                                                    ],
+                                                                    "minimum": 0
+                                                                },
+                                                                "landed_total_minor": {
+                                                                    "type": [
+                                                                        "integer",
+                                                                        "null"
+                                                                    ],
+                                                                    "minimum": 0
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        "comparison": {
+                                            "type": "object",
+                                            "properties": {
+                                                "basis": {
+                                                    "type": "string"
+                                                },
+                                                "equivalence": {
+                                                    "type": "string"
+                                                },
+                                                "ranked_offers": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object",
+                                                        "required": [
+                                                            "variant_id",
+                                                            "price",
+                                                            "available",
+                                                            "landed_total_minor"
+                                                        ],
+                                                        "properties": {
+                                                            "variant_id": {
+                                                                "type": [
+                                                                    "string",
+                                                                    "null"
+                                                                ]
+                                                            },
+                                                            "price": {
+                                                                "anyOf": [
+                                                                    {
+                                                                        "type": "null"
+                                                                    },
+                                                                    {
+                                                                        "type": "object",
+                                                                        "required": [
+                                                                            "amount_minor",
+                                                                            "currency"
+                                                                        ],
+                                                                        "properties": {
+                                                                            "amount_minor": {
+                                                                                "type": "integer",
+                                                                                "minimum": 0
+                                                                            },
+                                                                            "currency": {
+                                                                                "type": "string"
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                ]
+                                                            },
+                                                            "available": {
+                                                                "type": [
+                                                                    "boolean",
+                                                                    "null"
+                                                                ]
+                                                            },
+                                                            "seller": {
+                                                                "type": "object"
+                                                            },
+                                                            "checkout_url": {
+                                                                "type": [
+                                                                    "string",
+                                                                    "null"
+                                                                ]
+                                                            },
+                                                            "shipping_minor": {
+                                                                "type": [
+                                                                    "integer",
+                                                                    "null"
+                                                                ],
+                                                                "minimum": 0
+                                                            },
+                                                            "tax_minor": {
+                                                                "type": [
+                                                                    "integer",
+                                                                    "null"
+                                                                ],
+                                                                "minimum": 0
+                                                            },
+                                                            "duties_minor": {
+                                                                "type": [
+                                                                    "integer",
+                                                                    "null"
+                                                                ],
+                                                                "minimum": 0
+                                                            },
+                                                            "landed_total_minor": {
+                                                                "type": [
+                                                                    "integer",
+                                                                    "null"
+                                                                ],
+                                                                "minimum": 0
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                                "missing_variant_ids": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string"
+                                                    }
+                                                },
+                                                "total_cost_winner": {
+                                                    "type": "null"
+                                                }
+                                            }
+                                        },
+                                        "limitations": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "402": {
+                        "description": "Payment Required: inspect PAYMENT-REQUIRED and retry with PAYMENT-SIGNATURE"
+                    },
+                    "404": {
+                        "description": "no_match: nothing in the catalog matches the query terms / requested variant ids. Not charged."
+                    },
+                    "413": {
+                        "description": "Request exceeds 64 KiB",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "415": {
+                        "description": "Content-Type must be application/json",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Rate limit exceeded before payment or computation"
+                    },
+                    "502": {
+                        "description": "Catalog failed or response unsupported",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Catalog disabled or rate limited",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "504": {
+                        "description": "Catalog timed out",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
                     }
-                  },
-                  "country": {
-                    "type": "string",
-                    "pattern": "^[A-Z]{2}$"
-                  },
-                  "currency": {
-                    "type": "string",
-                    "pattern": "^[A-Z]{3}$"
-                  }
                 },
-                "required": [
-                  "variant_ids",
-                  "country",
-                  "currency"
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Source-attributed products or offer comparison; unknown costs remain null",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Request exceeds 64 KiB",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Content-Type must be application/json",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          },
-          "502": {
-            "description": "Catalog failed or response unsupported",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Catalog disabled or rate limited",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          },
-          "504": {
-            "description": "Catalog timed out",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/capabilities": {
-      "get": {
-        "operationId": "get_capabilities",
-        "summary": "Inspect availability and stable future capability IDs",
-        "responses": {
-          "200": {
-            "description": "Capability catalog",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          },
-          "304": {
-            "description": "Catalog unchanged"
-          }
-        }
-      }
-    },
-    "/v1/shipping/compare": {
-      "post": {
-        "operationId": "compare_shipping_plans",
-        "summary": "Compare estimated shipping and basket combinations",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "currency",
-                  "destination",
-                  "items",
-                  "fulfillment_groups"
-                ],
-                "properties": {
-                  "currency": {
-                    "type": "string",
-                    "pattern": "^[A-Z]{3}$",
-                    "description": "All input amounts use minor units of this currency; no currency conversion."
-                  },
-                  "destination": {
-                    "type": "object",
-                    "required": [
-                      "country"
+                "security": [],
+                "x-payment-info": {
+                    "protocols": [
+                        {
+                            "x402": {}
+                        },
+                        {
+                            "mpp": {}
+                        }
                     ],
-                    "properties": {
-                      "country": {
-                        "type": "string",
-                        "pattern": "^[A-Z]{2}$"
-                      }
-                    }
-                  },
-                  "constraints": {
-                    "type": "object",
-                    "properties": {
-                      "max_shipments": {
-                        "type": "integer",
-                        "minimum": 1,
-                        "maximum": 6
-                      },
-                      "max_delivery_days": {
-                        "type": "integer",
-                        "minimum": 0,
-                        "maximum": 365
-                      }
-                    }
-                  },
-                  "items": {
-                    "type": "array",
-                    "minItems": 1,
-                    "maxItems": 6,
-                    "items": {
-                      "type": "object",
-                      "required": [
-                        "item_id",
-                        "quantity",
-                        "offers"
-                      ],
-                      "properties": {
-                        "item_id": {
-                          "type": "string",
-                          "pattern": "^[a-zA-Z0-9_.-]{1,80}$"
-                        },
-                        "quantity": {
-                          "type": "integer",
-                          "minimum": 1,
-                          "maximum": 100
-                        },
-                        "offers": {
-                          "type": "array",
-                          "minItems": 1,
-                          "maxItems": 4,
-                          "items": {
-                            "type": "object",
-                            "required": [
-                              "offer_id",
-                              "group_id",
-                              "unit_price_minor"
-                            ],
-                            "properties": {
-                              "offer_id": {
-                                "type": "string",
-                                "pattern": "^[a-zA-Z0-9_.-]{1,80}$"
-                              },
-                              "group_id": {
-                                "type": "string",
-                                "pattern": "^[a-zA-Z0-9_.-]{1,80}$"
-                              },
-                              "unit_price_minor": {
-                                "type": "integer",
-                                "minimum": 0,
-                                "maximum": 1000000000
-                              }
-                            }
-                          }
+                    "price": {
+                        "mode": "fixed",
+                        "currency": "USD",
+                        "amount": "0.01"
+                    },
+                    "offers": [
+                        {
+                            "intent": "charge",
+                            "method": "evm",
+                            "amount": "10000",
+                            "currency": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
                         }
-                      }
-                    }
-                  },
-                  "fulfillment_groups": {
-                    "type": "array",
-                    "minItems": 1,
-                    "maxItems": 12,
-                    "items": {
-                      "type": "object",
-                      "required": [
-                        "group_id",
-                        "merchant_id",
-                        "rule_source",
-                        "ship_to_countries",
-                        "methods"
-                      ],
-                      "properties": {
-                        "group_id": {
-                          "type": "string",
-                          "pattern": "^[a-zA-Z0-9_.-]{1,80}$"
-                        },
-                        "merchant_id": {
-                          "type": "string",
-                          "pattern": "^[a-zA-Z0-9_.-]{1,80}$"
-                        },
-                        "rule_source": {
-                          "type": "string",
-                          "minLength": 1,
-                          "maxLength": 500
-                        },
-                        "ship_to_countries": {
-                          "type": "array",
-                          "minItems": 1,
-                          "items": {
-                            "type": "string",
-                            "pattern": "^[A-Z]{2}$"
-                          }
-                        },
-                        "methods": {
-                          "type": "array",
-                          "minItems": 1,
-                          "maxItems": 4,
-                          "items": {
-                            "type": "object",
-                            "required": [
-                              "method_id",
-                              "base_minor",
-                              "per_unit_minor",
-                              "delivery_days_max"
-                            ],
-                            "properties": {
-                              "method_id": {
-                                "type": "string",
-                                "pattern": "^[a-zA-Z0-9_.-]{1,80}$"
-                              },
-                              "base_minor": {
-                                "type": "integer",
-                                "minimum": 0,
-                                "maximum": 1000000000
-                              },
-                              "per_unit_minor": {
-                                "type": "integer",
-                                "minimum": 0,
-                                "maximum": 1000000000
-                              },
-                              "free_over_subtotal_minor": {
-                                "type": "integer",
-                                "minimum": 0,
-                                "maximum": 1000000000
-                              },
-                              "delivery_days_max": {
-                                "type": [
-                                  "integer",
-                                  "null"
-                                ],
-                                "minimum": 0,
-                                "maximum": 365
-                              }
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
+                    ]
                 }
-              }
             }
-          }
         },
-        "responses": {
-          "200": {
-            "description": "Complete estimate set and recommendations; no_feasible_plan if constraints eliminate all options",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
+        "/v1/products/get": {
+            "post": {
+                "operationId": "get_product",
+                "summary": "Retrieve current catalog details and variant options by Shopify identifier. Does not verify checkout or delivery.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "id": {
+                                        "type": "string",
+                                        "pattern": "^gid://shopify/(p|ProductVariant)/[a-zA-Z0-9_-]+$",
+                                        "maxLength": 200
+                                    },
+                                    "country": {
+                                        "type": "string",
+                                        "pattern": "^[A-Z]{2}$"
+                                    },
+                                    "currency": {
+                                        "type": "string",
+                                        "pattern": "^[A-Z]{3}$"
+                                    },
+                                    "selected": {
+                                        "type": "array",
+                                        "maxItems": 10,
+                                        "items": {
+                                            "type": "object",
+                                            "additionalProperties": false,
+                                            "properties": {
+                                                "name": {
+                                                    "type": "string",
+                                                    "minLength": 1,
+                                                    "maxLength": 100
+                                                },
+                                                "label": {
+                                                    "type": "string",
+                                                    "minLength": 1,
+                                                    "maxLength": 100
+                                                }
+                                            },
+                                            "required": [
+                                                "name",
+                                                "label"
+                                            ]
+                                        }
+                                    }
+                                },
+                                "required": [
+                                    "id",
+                                    "country",
+                                    "currency"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Source-attributed products or offer comparison; unknown costs remain null",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "status",
+                                        "source",
+                                        "products",
+                                        "charged"
+                                    ],
+                                    "properties": {
+                                        "status": {
+                                            "type": "string"
+                                        },
+                                        "charged": {
+                                            "type": "boolean"
+                                        },
+                                        "source": {
+                                            "type": "object",
+                                            "required": [
+                                                "id",
+                                                "retrieved_at"
+                                            ],
+                                            "properties": {
+                                                "id": {
+                                                    "type": "string"
+                                                },
+                                                "retrieved_at": {
+                                                    "type": "string"
+                                                },
+                                                "merchant_verified_at": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                }
+                                            }
+                                        },
+                                        "products": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "required": [
+                                                    "product_id",
+                                                    "title",
+                                                    "offers"
+                                                ],
+                                                "properties": {
+                                                    "product_id": {
+                                                        "type": "string"
+                                                    },
+                                                    "title": {
+                                                        "type": "string"
+                                                    },
+                                                    "offers": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "object",
+                                                            "required": [
+                                                                "variant_id",
+                                                                "price",
+                                                                "available",
+                                                                "landed_total_minor"
+                                                            ],
+                                                            "properties": {
+                                                                "variant_id": {
+                                                                    "type": [
+                                                                        "string",
+                                                                        "null"
+                                                                    ]
+                                                                },
+                                                                "price": {
+                                                                    "anyOf": [
+                                                                        {
+                                                                            "type": "null"
+                                                                        },
+                                                                        {
+                                                                            "type": "object",
+                                                                            "required": [
+                                                                                "amount_minor",
+                                                                                "currency"
+                                                                            ],
+                                                                            "properties": {
+                                                                                "amount_minor": {
+                                                                                    "type": "integer",
+                                                                                    "minimum": 0
+                                                                                },
+                                                                                "currency": {
+                                                                                    "type": "string"
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                    ]
+                                                                },
+                                                                "available": {
+                                                                    "type": [
+                                                                        "boolean",
+                                                                        "null"
+                                                                    ]
+                                                                },
+                                                                "seller": {
+                                                                    "type": "object"
+                                                                },
+                                                                "checkout_url": {
+                                                                    "type": [
+                                                                        "string",
+                                                                        "null"
+                                                                    ]
+                                                                },
+                                                                "shipping_minor": {
+                                                                    "type": [
+                                                                        "integer",
+                                                                        "null"
+                                                                    ],
+                                                                    "minimum": 0
+                                                                },
+                                                                "tax_minor": {
+                                                                    "type": [
+                                                                        "integer",
+                                                                        "null"
+                                                                    ],
+                                                                    "minimum": 0
+                                                                },
+                                                                "duties_minor": {
+                                                                    "type": [
+                                                                        "integer",
+                                                                        "null"
+                                                                    ],
+                                                                    "minimum": 0
+                                                                },
+                                                                "landed_total_minor": {
+                                                                    "type": [
+                                                                        "integer",
+                                                                        "null"
+                                                                    ],
+                                                                    "minimum": 0
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        "comparison": {
+                                            "type": "object",
+                                            "properties": {
+                                                "basis": {
+                                                    "type": "string"
+                                                },
+                                                "equivalence": {
+                                                    "type": "string"
+                                                },
+                                                "ranked_offers": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object",
+                                                        "required": [
+                                                            "variant_id",
+                                                            "price",
+                                                            "available",
+                                                            "landed_total_minor"
+                                                        ],
+                                                        "properties": {
+                                                            "variant_id": {
+                                                                "type": [
+                                                                    "string",
+                                                                    "null"
+                                                                ]
+                                                            },
+                                                            "price": {
+                                                                "anyOf": [
+                                                                    {
+                                                                        "type": "null"
+                                                                    },
+                                                                    {
+                                                                        "type": "object",
+                                                                        "required": [
+                                                                            "amount_minor",
+                                                                            "currency"
+                                                                        ],
+                                                                        "properties": {
+                                                                            "amount_minor": {
+                                                                                "type": "integer",
+                                                                                "minimum": 0
+                                                                            },
+                                                                            "currency": {
+                                                                                "type": "string"
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                ]
+                                                            },
+                                                            "available": {
+                                                                "type": [
+                                                                    "boolean",
+                                                                    "null"
+                                                                ]
+                                                            },
+                                                            "seller": {
+                                                                "type": "object"
+                                                            },
+                                                            "checkout_url": {
+                                                                "type": [
+                                                                    "string",
+                                                                    "null"
+                                                                ]
+                                                            },
+                                                            "shipping_minor": {
+                                                                "type": [
+                                                                    "integer",
+                                                                    "null"
+                                                                ],
+                                                                "minimum": 0
+                                                            },
+                                                            "tax_minor": {
+                                                                "type": [
+                                                                    "integer",
+                                                                    "null"
+                                                                ],
+                                                                "minimum": 0
+                                                            },
+                                                            "duties_minor": {
+                                                                "type": [
+                                                                    "integer",
+                                                                    "null"
+                                                                ],
+                                                                "minimum": 0
+                                                            },
+                                                            "landed_total_minor": {
+                                                                "type": [
+                                                                    "integer",
+                                                                    "null"
+                                                                ],
+                                                                "minimum": 0
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                                "missing_variant_ids": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string"
+                                                    }
+                                                },
+                                                "total_cost_winner": {
+                                                    "type": "null"
+                                                }
+                                            }
+                                        },
+                                        "limitations": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "402": {
+                        "description": "Payment Required: inspect PAYMENT-REQUIRED and retry with PAYMENT-SIGNATURE"
+                    },
+                    "413": {
+                        "description": "Request exceeds 64 KiB",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "415": {
+                        "description": "Content-Type must be application/json",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Rate limit exceeded before payment or computation"
+                    },
+                    "502": {
+                        "description": "Catalog failed or response unsupported",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Catalog disabled or rate limited",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "504": {
+                        "description": "Catalog timed out",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [],
+                "x-payment-info": {
+                    "protocols": [
+                        {
+                            "x402": {}
+                        },
+                        {
+                            "mpp": {}
+                        }
+                    ],
+                    "price": {
+                        "mode": "fixed",
+                        "currency": "USD",
+                        "amount": "0.01"
+                    },
+                    "offers": [
+                        {
+                            "intent": "charge",
+                            "method": "evm",
+                            "amount": "10000",
+                            "currency": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+                        }
+                    ]
                 }
-              }
             }
-          },
-          "400": {
-            "description": "Invalid input, destination not eligible, or combination limit",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
+        },
+        "/v1/compare": {
+            "post": {
+                "operationId": "compare_offers",
+                "summary": "Refresh specified variant offers and rank available offers by item price in one currency. Equivalence and landed totals are not verified.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "variant_ids": {
+                                        "type": "array",
+                                        "minItems": 2,
+                                        "maxItems": 10,
+                                        "uniqueItems": true,
+                                        "items": {
+                                            "type": "string",
+                                            "pattern": "^gid://shopify/ProductVariant/[0-9]+$",
+                                            "maxLength": 200
+                                        }
+                                    },
+                                    "country": {
+                                        "type": "string",
+                                        "pattern": "^[A-Z]{2}$"
+                                    },
+                                    "currency": {
+                                        "type": "string",
+                                        "pattern": "^[A-Z]{3}$"
+                                    }
+                                },
+                                "required": [
+                                    "variant_ids",
+                                    "country",
+                                    "currency"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Source-attributed products or offer comparison; unknown costs remain null",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "status",
+                                        "source",
+                                        "products",
+                                        "charged"
+                                    ],
+                                    "properties": {
+                                        "status": {
+                                            "type": "string"
+                                        },
+                                        "charged": {
+                                            "type": "boolean"
+                                        },
+                                        "source": {
+                                            "type": "object",
+                                            "required": [
+                                                "id",
+                                                "retrieved_at"
+                                            ],
+                                            "properties": {
+                                                "id": {
+                                                    "type": "string"
+                                                },
+                                                "retrieved_at": {
+                                                    "type": "string"
+                                                },
+                                                "merchant_verified_at": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                }
+                                            }
+                                        },
+                                        "products": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "required": [
+                                                    "product_id",
+                                                    "title",
+                                                    "offers"
+                                                ],
+                                                "properties": {
+                                                    "product_id": {
+                                                        "type": "string"
+                                                    },
+                                                    "title": {
+                                                        "type": "string"
+                                                    },
+                                                    "offers": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "object",
+                                                            "required": [
+                                                                "variant_id",
+                                                                "price",
+                                                                "available",
+                                                                "landed_total_minor"
+                                                            ],
+                                                            "properties": {
+                                                                "variant_id": {
+                                                                    "type": [
+                                                                        "string",
+                                                                        "null"
+                                                                    ]
+                                                                },
+                                                                "price": {
+                                                                    "anyOf": [
+                                                                        {
+                                                                            "type": "null"
+                                                                        },
+                                                                        {
+                                                                            "type": "object",
+                                                                            "required": [
+                                                                                "amount_minor",
+                                                                                "currency"
+                                                                            ],
+                                                                            "properties": {
+                                                                                "amount_minor": {
+                                                                                    "type": "integer",
+                                                                                    "minimum": 0
+                                                                                },
+                                                                                "currency": {
+                                                                                    "type": "string"
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                    ]
+                                                                },
+                                                                "available": {
+                                                                    "type": [
+                                                                        "boolean",
+                                                                        "null"
+                                                                    ]
+                                                                },
+                                                                "seller": {
+                                                                    "type": "object"
+                                                                },
+                                                                "checkout_url": {
+                                                                    "type": [
+                                                                        "string",
+                                                                        "null"
+                                                                    ]
+                                                                },
+                                                                "shipping_minor": {
+                                                                    "type": [
+                                                                        "integer",
+                                                                        "null"
+                                                                    ],
+                                                                    "minimum": 0
+                                                                },
+                                                                "tax_minor": {
+                                                                    "type": [
+                                                                        "integer",
+                                                                        "null"
+                                                                    ],
+                                                                    "minimum": 0
+                                                                },
+                                                                "duties_minor": {
+                                                                    "type": [
+                                                                        "integer",
+                                                                        "null"
+                                                                    ],
+                                                                    "minimum": 0
+                                                                },
+                                                                "landed_total_minor": {
+                                                                    "type": [
+                                                                        "integer",
+                                                                        "null"
+                                                                    ],
+                                                                    "minimum": 0
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        "comparison": {
+                                            "type": "object",
+                                            "properties": {
+                                                "basis": {
+                                                    "type": "string"
+                                                },
+                                                "equivalence": {
+                                                    "type": "string"
+                                                },
+                                                "ranked_offers": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object",
+                                                        "required": [
+                                                            "variant_id",
+                                                            "price",
+                                                            "available",
+                                                            "landed_total_minor"
+                                                        ],
+                                                        "properties": {
+                                                            "variant_id": {
+                                                                "type": [
+                                                                    "string",
+                                                                    "null"
+                                                                ]
+                                                            },
+                                                            "price": {
+                                                                "anyOf": [
+                                                                    {
+                                                                        "type": "null"
+                                                                    },
+                                                                    {
+                                                                        "type": "object",
+                                                                        "required": [
+                                                                            "amount_minor",
+                                                                            "currency"
+                                                                        ],
+                                                                        "properties": {
+                                                                            "amount_minor": {
+                                                                                "type": "integer",
+                                                                                "minimum": 0
+                                                                            },
+                                                                            "currency": {
+                                                                                "type": "string"
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                ]
+                                                            },
+                                                            "available": {
+                                                                "type": [
+                                                                    "boolean",
+                                                                    "null"
+                                                                ]
+                                                            },
+                                                            "seller": {
+                                                                "type": "object"
+                                                            },
+                                                            "checkout_url": {
+                                                                "type": [
+                                                                    "string",
+                                                                    "null"
+                                                                ]
+                                                            },
+                                                            "shipping_minor": {
+                                                                "type": [
+                                                                    "integer",
+                                                                    "null"
+                                                                ],
+                                                                "minimum": 0
+                                                            },
+                                                            "tax_minor": {
+                                                                "type": [
+                                                                    "integer",
+                                                                    "null"
+                                                                ],
+                                                                "minimum": 0
+                                                            },
+                                                            "duties_minor": {
+                                                                "type": [
+                                                                    "integer",
+                                                                    "null"
+                                                                ],
+                                                                "minimum": 0
+                                                            },
+                                                            "landed_total_minor": {
+                                                                "type": [
+                                                                    "integer",
+                                                                    "null"
+                                                                ],
+                                                                "minimum": 0
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                                "missing_variant_ids": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string"
+                                                    }
+                                                },
+                                                "total_cost_winner": {
+                                                    "type": "null"
+                                                }
+                                            }
+                                        },
+                                        "limitations": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "402": {
+                        "description": "Payment Required: inspect PAYMENT-REQUIRED and retry with PAYMENT-SIGNATURE"
+                    },
+                    "404": {
+                        "description": "no_match: nothing in the catalog matches the query terms / requested variant ids. Not charged."
+                    },
+                    "413": {
+                        "description": "Request exceeds 64 KiB",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "415": {
+                        "description": "Content-Type must be application/json",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Rate limit exceeded before payment or computation"
+                    },
+                    "502": {
+                        "description": "Catalog failed or response unsupported",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Catalog disabled or rate limited",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "504": {
+                        "description": "Catalog timed out",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [],
+                "x-payment-info": {
+                    "protocols": [
+                        {
+                            "x402": {}
+                        },
+                        {
+                            "mpp": {}
+                        }
+                    ],
+                    "price": {
+                        "mode": "fixed",
+                        "currency": "USD",
+                        "amount": "0.01"
+                    },
+                    "offers": [
+                        {
+                            "intent": "charge",
+                            "method": "evm",
+                            "amount": "10000",
+                            "currency": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+                        }
+                    ]
                 }
-              }
             }
-          },
-          "413": {
-            "description": "Body exceeds 64 KiB",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
+        },
+        "/v1/capabilities": {
+            "get": {
+                "operationId": "get_capabilities",
+                "summary": "Inspect availability and stable future capability IDs",
+                "responses": {
+                    "200": {
+                        "description": "Capability catalog",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "304": {
+                        "description": "Catalog unchanged"
+                    }
+                },
+                "security": []
+            }
+        },
+        "/v1/shipping/compare": {
+            "post": {
+                "operationId": "compare_shipping_plans",
+                "summary": "Compare estimated shipping and basket combinations",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "currency",
+                                    "destination",
+                                    "items",
+                                    "fulfillment_groups"
+                                ],
+                                "properties": {
+                                    "currency": {
+                                        "type": "string",
+                                        "pattern": "^[A-Z]{3}$",
+                                        "description": "All input amounts use minor units of this currency; no currency conversion."
+                                    },
+                                    "destination": {
+                                        "type": "object",
+                                        "required": [
+                                            "country"
+                                        ],
+                                        "properties": {
+                                            "country": {
+                                                "type": "string",
+                                                "pattern": "^[A-Z]{2}$"
+                                            }
+                                        }
+                                    },
+                                    "constraints": {
+                                        "type": "object",
+                                        "properties": {
+                                            "max_shipments": {
+                                                "type": "integer",
+                                                "minimum": 1,
+                                                "maximum": 6
+                                            },
+                                            "max_delivery_days": {
+                                                "type": "integer",
+                                                "minimum": 0,
+                                                "maximum": 365
+                                            }
+                                        }
+                                    },
+                                    "items": {
+                                        "type": "array",
+                                        "minItems": 1,
+                                        "maxItems": 6,
+                                        "items": {
+                                            "type": "object",
+                                            "required": [
+                                                "item_id",
+                                                "quantity",
+                                                "offers"
+                                            ],
+                                            "properties": {
+                                                "item_id": {
+                                                    "type": "string",
+                                                    "pattern": "^[a-zA-Z0-9_.-]{1,80}$"
+                                                },
+                                                "quantity": {
+                                                    "type": "integer",
+                                                    "minimum": 1,
+                                                    "maximum": 100
+                                                },
+                                                "offers": {
+                                                    "type": "array",
+                                                    "minItems": 1,
+                                                    "maxItems": 4,
+                                                    "items": {
+                                                        "type": "object",
+                                                        "required": [
+                                                            "offer_id",
+                                                            "group_id",
+                                                            "unit_price_minor"
+                                                        ],
+                                                        "properties": {
+                                                            "offer_id": {
+                                                                "type": "string",
+                                                                "pattern": "^[a-zA-Z0-9_.-]{1,80}$"
+                                                            },
+                                                            "group_id": {
+                                                                "type": "string",
+                                                                "pattern": "^[a-zA-Z0-9_.-]{1,80}$"
+                                                            },
+                                                            "unit_price_minor": {
+                                                                "type": "integer",
+                                                                "minimum": 0,
+                                                                "maximum": 1000000000
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "fulfillment_groups": {
+                                        "type": "array",
+                                        "minItems": 1,
+                                        "maxItems": 12,
+                                        "items": {
+                                            "type": "object",
+                                            "required": [
+                                                "group_id",
+                                                "merchant_id",
+                                                "rule_source",
+                                                "ship_to_countries",
+                                                "methods"
+                                            ],
+                                            "properties": {
+                                                "group_id": {
+                                                    "type": "string",
+                                                    "pattern": "^[a-zA-Z0-9_.-]{1,80}$"
+                                                },
+                                                "merchant_id": {
+                                                    "type": "string",
+                                                    "pattern": "^[a-zA-Z0-9_.-]{1,80}$"
+                                                },
+                                                "rule_source": {
+                                                    "type": "string",
+                                                    "minLength": 1,
+                                                    "maxLength": 500
+                                                },
+                                                "ship_to_countries": {
+                                                    "type": "array",
+                                                    "minItems": 1,
+                                                    "items": {
+                                                        "type": "string",
+                                                        "pattern": "^[A-Z]{2}$"
+                                                    }
+                                                },
+                                                "methods": {
+                                                    "type": "array",
+                                                    "minItems": 1,
+                                                    "maxItems": 4,
+                                                    "items": {
+                                                        "type": "object",
+                                                        "required": [
+                                                            "method_id",
+                                                            "base_minor",
+                                                            "per_unit_minor",
+                                                            "delivery_days_max"
+                                                        ],
+                                                        "properties": {
+                                                            "method_id": {
+                                                                "type": "string",
+                                                                "pattern": "^[a-zA-Z0-9_.-]{1,80}$"
+                                                            },
+                                                            "base_minor": {
+                                                                "type": "integer",
+                                                                "minimum": 0,
+                                                                "maximum": 1000000000
+                                                            },
+                                                            "per_unit_minor": {
+                                                                "type": "integer",
+                                                                "minimum": 0,
+                                                                "maximum": 1000000000
+                                                            },
+                                                            "free_over_subtotal_minor": {
+                                                                "type": "integer",
+                                                                "minimum": 0,
+                                                                "maximum": 1000000000
+                                                            },
+                                                            "delivery_days_max": {
+                                                                "type": [
+                                                                    "integer",
+                                                                    "null"
+                                                                ],
+                                                                "minimum": 0,
+                                                                "maximum": 365
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Complete estimate set and recommendations; no_feasible_plan if constraints eliminate all options",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "status",
+                                        "currency",
+                                        "basis",
+                                        "recommendations",
+                                        "charged"
+                                    ],
+                                    "properties": {
+                                        "status": {
+                                            "type": "string"
+                                        },
+                                        "currency": {
+                                            "type": "string"
+                                        },
+                                        "basis": {
+                                            "const": "caller_supplied_rules"
+                                        },
+                                        "charged": {
+                                            "type": "boolean"
+                                        },
+                                        "evaluated_plan_count": {
+                                            "type": "integer"
+                                        },
+                                        "recommendations": {
+                                            "type": "object",
+                                            "properties": {
+                                                "lowest_estimated_cost": {
+                                                    "type": [
+                                                        "object",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "fastest_stated_delivery": {
+                                                    "type": [
+                                                        "object",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "fewest_shipments": {
+                                                    "type": [
+                                                        "object",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "lowest_cost_single_merchant": {
+                                                    "type": [
+                                                        "object",
+                                                        "null"
+                                                    ]
+                                                }
+                                            }
+                                        },
+                                        "taxes_minor": {
+                                            "type": [
+                                                "integer",
+                                                "null"
+                                            ],
+                                            "minimum": 0
+                                        },
+                                        "duties_minor": {
+                                            "type": [
+                                                "integer",
+                                                "null"
+                                            ],
+                                            "minimum": 0
+                                        },
+                                        "landed_total_minor": {
+                                            "type": [
+                                                "integer",
+                                                "null"
+                                            ],
+                                            "minimum": 0
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid input, destination not eligible, or combination limit",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "402": {
+                        "description": "Payment Required: inspect PAYMENT-REQUIRED and retry with PAYMENT-SIGNATURE"
+                    },
+                    "413": {
+                        "description": "Body exceeds 64 KiB",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "415": {
+                        "description": "Content-Type must be application/json",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Rate limit exceeded before payment or computation"
+                    }
+                },
+                "security": [],
+                "x-payment-info": {
+                    "protocols": [
+                        {
+                            "x402": {}
+                        },
+                        {
+                            "mpp": {}
+                        }
+                    ],
+                    "price": {
+                        "mode": "fixed",
+                        "currency": "USD",
+                        "amount": "0.01"
+                    },
+                    "offers": [
+                        {
+                            "intent": "charge",
+                            "method": "evm",
+                            "amount": "10000",
+                            "currency": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+                        }
+                    ]
                 }
-              }
             }
-          },
-          "415": {
-            "description": "Content-Type must be application/json",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          }
         }
-      }
-    },
-    "/v1/research/quantum/basket-optimization": {
-      "post": {
-        "operationId": "optimize_basket_quantum",
-        "summary": "Research placeholder for quantum-assisted basket optimization. No quantum solver, hardware access or proven advantage.",
-        "x-status": "planned",
-        "description": "Reserved operation. Always returns 501. Request contract is not finalized. Do not call this to subscribe; no state is stored.",
-        "responses": {
-          "501": {
-            "description": "Not implemented; created=false, charged=false",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/research/quantum/benchmarks": {
-      "post": {
-        "operationId": "benchmark_quantum_optimizer",
-        "summary": "Research placeholder to compare quantum and classical solvers on identical constraints, result quality, end-to-end latency and cost. No benchmark is executed.",
-        "x-status": "planned",
-        "description": "Reserved operation. Always returns 501. Request contract is not finalized. Do not call this to subscribe; no state is stored.",
-        "responses": {
-          "501": {
-            "description": "Not implemented; created=false, charged=false",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/price-watches": {
-      "post": {
-        "operationId": "create_price_watch",
-        "summary": "Watch an exact product/variant for a price target. No watch is currently created.",
-        "x-status": "planned",
-        "description": "Reserved operation. Always returns 501. Request contract is not finalized. Do not call this to subscribe; no state is stored.",
-        "responses": {
-          "501": {
-            "description": "Not implemented; created=false, charged=false",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/stock-alerts": {
-      "post": {
-        "operationId": "create_stock_alert",
-        "summary": "Watch an exact product/variant for restocking. No alert is currently created.",
-        "x-status": "planned",
-        "description": "Reserved operation. Always returns 501. Request contract is not finalized. Do not call this to subscribe; no state is stored.",
-        "responses": {
-          "501": {
-            "description": "Not implemented; created=false, charged=false",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/shipping-watches": {
-      "post": {
-        "operationId": "create_shipping_watch",
-        "summary": "Watch delivery eligibility or shipping cost. No watch is currently created.",
-        "x-status": "planned",
-        "description": "Reserved operation. Always returns 501. Request contract is not finalized. Do not call this to subscribe; no state is stored.",
-        "responses": {
-          "501": {
-            "description": "Not implemented; created=false, charged=false",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/purchase-plans": {
-      "post": {
-        "operationId": "plan_purchase",
-        "summary": "Build a purchase plan under budget and delivery constraints. Does not place orders.",
-        "x-status": "planned",
-        "description": "Reserved operation. Always returns 501. Request contract is not finalized. Do not call this to subscribe; no state is stored.",
-        "responses": {
-          "501": {
-            "description": "Not implemented; created=false, charged=false",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          }
-        }
-      }
     }
-  }
 }

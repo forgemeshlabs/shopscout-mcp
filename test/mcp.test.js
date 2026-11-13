@@ -53,6 +53,7 @@ test('payment challenges, upstream errors, malformed responses and redirects sta
   [501,'{"error":{"message":"Planned"}}','capability_planned',{}],
   [503,'{"error":{"code":"catalog_not_configured","message":"Disabled"}}','catalog_not_configured',{}],
   [500,'{"error":{"message":"Unavailable"}}','upstream_error',{}],
+  [404,'{"error":"no_match","charged":false,"message":"nothing matches"}','no_match',{}],
   [200,'not json','invalid_upstream_response',{}],
   [200,'[]','invalid_upstream_response',{}],
   [302,'','backend_unavailable',{Location:'https://example.com'}]
@@ -60,6 +61,11 @@ test('payment challenges, upstream errors, malformed responses and redirects sta
   const {server,url}=await serve((req,res)=>{res.writeHead(status,headers);res.end(body);});
   try{await assert.rejects(createApiClient({walletKey:undefined})({method:'GET',path:'/v1/capabilities'},{ }),e=>e.code===code);}finally{await stop(server);}
  }
+});
+
+test('no_match 404 surfaces status, charged:false and the service message',async()=>{
+ const {server}=await serve((req,res)=>{res.writeHead(404);res.end('{"error":"no_match","charged":false,"message":"nothing matches the query terms"}');});
+ try{await assert.rejects(createApiClient({walletKey:undefined})({method:'POST',path:'/v1/search'},{}),e=>e.code==='no_match'&&e.status===404&&e.charged===false&&/nothing matches/.test(e.message));}finally{await stop(server);}
 });
 
 test('cancellation and payload cap',async()=>{

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 const api = JSON.parse(readFileSync(new URL('../contracts/openapi.json', import.meta.url)));
 const catalogTools = ['/v1/search', '/v1/products/get', '/v1/compare'].map(path => {
   const operation = api.paths[path].post;
-  return { name: operation.operationId, description: operation.summary,
+  return { name: operation.operationId, description: operation.summary + (operation.responses['404'] && !/404/.test(operation.summary) ? ' ' + operation.responses['404'].description : ''),
     inputSchema: operation.requestBody.content['application/json'].schema,
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true } };
 });

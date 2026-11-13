@@ -1,7 +1,16 @@
 import { createRequire } from 'node:module';
 const { createGuard } = createRequire(import.meta.url)('../x402-guard.cjs');
 export class ApiError extends Error {
-  constructor(code, message, status) { super(message); this.code = code; this.status = status; }
+  constructor(code, message, status, charged) { super(message); this.code = code; this.status = status; if (charged !== undefined) this.charged = charged; }
+}
+// Pull the service's own refusal out of the (<=200 char) error body: code, message, and whether the payer was charged.
+function refusalDetail(body) {
+  const str = (key) => (body.match(new RegExp(`"${key}"\\s*:\\s*"([^"]{1,200})"`)) || [])[1];
+  const charged = (body.match(/"charged"\s*:\s*(true|false)/) || [])[1];
+  const errorString = str('error');
+  const code = str('code') || (errorString && /^[a-z_]+$/.test(errorString) ? errorString : undefined);
+  const message = str('message') || (errorString !== code ? errorString : undefined) || str('reason');
+  return { code, message, charged: charged === undefined ? undefined : charged === 'true' };
 }
 export const BASE_URL = 'https://shopscout.forgemesh.io';
 const PAY_TO = ['0xabf4Fc4Feda1E02444247650a23f4acB4E308f66'];
@@ -48,12 +57,16 @@ function mapError(error) {
   const m = String(error?.message || '');
   let hit;
   if (/refused to sign|were rejected by|No network\/scheme/.test(m)) return new ApiError('payment_refused', m.slice(0, 400), 402);
-  if ((hit = m.match(/^Payment failed — HTTP (\d+)/))) return new ApiError('payment_rejected', 'The signed payment was not accepted. Check the wallet USDC balance on Base and retry once.', Number(hit[1]));
+  if ((hit = m.match(/^Payment failed — HTTP (\d+)(?:: ([\s\S]*))?/))) {
+    const d = refusalDetail(hit[2] || '');
+    return new ApiError('payment_rejected', `The signed payment was not accepted (HTTP ${hit[1]}${d.charged === false ? ', charged: false' : ''})${d.message ? `: ${d.message}` : '. Check the wallet USDC balance on Base and retry once.'}`, Number(hit[1]), d.charged);
+  }
   if ((hit = m.match(/^HTTP (\d+): non-JSON response/))) return new ApiError('invalid_upstream_response', 'Backend did not return valid JSON', Number(hit[1]));
   if ((hit = m.match(/^HTTP (\d+): ([\s\S]*)/))) {
     const status = Number(hit[1]);
-    const code = (hit[2].match(/"code"\s*:\s*"([a-z_]+)"/) || [])[1];
-    return new ApiError(status === 501 ? 'capability_planned' : catalogCodes.has(code) ? code : 'upstream_error', 'Backend request failed', status);
+    const d = refusalDetail(hit[2]);
+    const code = status === 501 ? 'capability_planned' : catalogCodes.has(d.code) || ([400, 404, 413, 415, 422, 429].includes(status) && d.code) ? d.code : 'upstream_error';
+    return new ApiError(code, `Backend request failed (HTTP ${status}${d.charged === undefined ? '' : `, charged: ${d.charged}`})${d.message ? `: ${d.message}` : ''}`, status, d.charged);
   }
   if (['TimeoutError','AbortError'].includes(error?.name)) return new ApiError('upstream_timeout', 'Backend request timed out');
   return new ApiError('backend_unavailable', 'Cannot reach the ShopScout backend');

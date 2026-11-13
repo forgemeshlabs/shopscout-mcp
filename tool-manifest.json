@@ -2,7 +2,7 @@
   "tools": [
     {
       "name": "search_products",
-      "description": "Search Shopify catalog products by query, destination and currency. Requires an enabled catalog connector.",
+      "description": "Search Shopify catalog products by query, destination and currency. Returns products whose title, seller, type or tags share a term with the query; unrelated catalog suggestions are dropped, and a search with nothing related answers 404 no_match without charge.",
       "inputSchema": {
         "type": "object",
         "additionalProperties": false,
@@ -116,7 +116,7 @@
     },
     {
       "name": "compare_offers",
-      "description": "Refresh specified variant offers and rank available offers by item price in one currency. Equivalence and landed totals are not verified.",
+      "description": "Refresh specified variant offers and rank available offers by item price in one currency. Equivalence and landed totals are not verified. no_match: nothing in the catalog matches the query terms / requested variant ids. Not charged.",
       "inputSchema": {
         "type": "object",
         "additionalProperties": false,
